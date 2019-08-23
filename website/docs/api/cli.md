@@ -86,11 +86,11 @@ generate [Markdown](https://en.wikipedia.org/wiki/Markdown)-formatted markup to
 copy-paste into [GitHub issues](https://github.com/explosion/spaCy/issues).
 
 ```bash
-$ python -m spacy info [--markdown]
+$ python -m spacy info [--markdown] [--silent]
 ```
 
 ```bash
-$ python -m spacy info [model] [--markdown]
+$ python -m spacy info [model] [--markdown] [--silent]
 ```
 
 | Argument                                         | Type       | Description                                                   |
@@ -284,19 +284,20 @@ same between pretraining and training. The API and errors around this need some
 improvement.
 
 ```bash
-$ python -m spacy pretrain [texts_loc] [vectors_model] [output_dir] [--width]
-[--depth] [--embed-rows] [--dropout] [--seed] [--n-iter] [--use-vectors]
-[--n-save_every]
+$ python -m spacy pretrain [texts_loc] [vectors_model] [output_dir]
+[--width] [--depth] [--embed-rows] [--loss_func] [--dropout] [--batch-size] [--max-length] [--min-length]
+[--seed] [--n-iter] [--use-vectors] [--n-save_every] [--init-tok2vec] [--epoch-start]
 ```
 
 | Argument                | Type       | Description                                                                                                                       |
 | ----------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `texts_loc`             | positional | Path to JSONL file with raw texts to learn from, with text provided as the key `"text"`. [See here](#pretrain-jsonl) for details. |
+| `texts_loc`             | positional | Path to JSONL file with raw texts to learn from, with text provided as the key `"text"` or tokens as the key `"tokens"`. [See here](#pretrain-jsonl) for details. |
 | `vectors_model`         | positional | Name or path to spaCy model with vectors to learn from.                                                                           |
 | `output_dir`            | positional | Directory to write models to on each epoch.                                                                                       |
 | `--width`, `-cw`        | option     | Width of CNN layers.                                                                                                              |
 | `--depth`, `-cd`        | option     | Depth of CNN layers.                                                                                                              |
 | `--embed-rows`, `-er`   | option     | Number of embedding rows.                                                                                                         |
+| `--loss-func`, `-L`     | option     | Loss function to use for the objective. Either `"L2"` or `"cosine"`.                                                              |
 | `--dropout`, `-d`       | option     | Dropout rate.                                                                                                                     |
 | `--batch-size`, `-bs`   | option     | Number of words per training batch.                                                                                               |
 | `--max-length`, `-xw`   | option     | Maximum words per example. Longer examples are discarded.                                                                         |
@@ -304,7 +305,9 @@ $ python -m spacy pretrain [texts_loc] [vectors_model] [output_dir] [--width]
 | `--seed`, `-s`          | option     | Seed for random number generators.                                                                                                |
 | `--n-iter`, `-i`        | option     | Number of iterations to pretrain.                                                                                                 |
 | `--use-vectors`, `-uv`  | flag       | Whether to use the static vectors as input features.                                                                              |
-| `--n-save_every`, `-se` | option     | Save model every X batches.                                                                                                       |
+| `--n-save-every`, `-se` | option     | Save model every X batches.                                                                                                       |
+| `--init-tok2vec`, `-t2v` <Tag variant="new">2.1</Tag> | option | Path to pretrained weights for the token-to-vector parts of the models. See `spacy pretrain`. Experimental.|
+| `--epoch-start`, `-es` <Tag variant="new">2.1.5</Tag> | option | The epoch to start counting at. Only relevant when using `--init-tok2vec` and the given weight file has been renamed. Prevents unintended overwriting of existing weight files.|
 | **CREATES**             | weights    | The pre-trained weights that can be used to initialize `spacy train`.                                                             |
 
 ### JSONL format for raw text {#pretrain-jsonl}
@@ -419,6 +422,7 @@ pip install dist/en_model-0.0.0.tar.gz
 | `input_dir`                                      | positional | Path to directory containing model data.                                                                                                                                                        |
 | `output_dir`                                     | positional | Directory to create package folder in.                                                                                                                                                          |
 | `--meta-path`, `-m` <Tag variant="new">2</Tag>   | option     | Path to `meta.json` file (optional).                                                                                                                                                            |
-| `--create-meta`, `-c` <Tag variant="new">2</Tag> | flag       | Create a `meta.json` file on the command line, even if one already exists in the directory. If an existing file is found, its entries will be shown as the defaults in the command line prompt. | `--force`, `-f` | flag | Force overwriting of existing folder in output directory. |
+| `--create-meta`, `-c` <Tag variant="new">2</Tag> | flag       | Create a `meta.json` file on the command line, even if one already exists in the directory. If an existing file is found, its entries will be shown as the defaults in the command line prompt.
+| `--force`, `-f`                                  | flag       | Force overwriting of existing folder in output directory. |
 | `--help`, `-h`                                   | flag       | Show help message and available arguments.                                                                                                                                                      |
 | **CREATES**                                      | directory  | A Python package containing the spaCy model.                                                                                                                                                    |

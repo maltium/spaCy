@@ -8,7 +8,7 @@ A slice from a [`Doc`](/api/doc) object.
 
 ## Span.\_\_init\_\_ {#init tag="method"}
 
-Create a Span object from the `slice doc[start : end]`.
+Create a Span object from the slice `doc[start : end]`.
 
 > #### Example
 >
@@ -114,6 +114,7 @@ For details, see the documentation on
 | `method`  | callable | Set a custom method on the object, for example `span._.compare(other_span)`.                                                          |
 | `getter`  | callable | Getter function that takes the object and returns an attribute value. Is called when the user accesses the `._` attribute.            |
 | `setter`  | callable | Setter function that takes the `Span` and a value, and modifies the object. Is called when the user writes to the `Span._` attribute. |
+| `force`   | bool     | Force overwriting existing attribute.                                                                                                 |
 
 ## Span.get_extension {#get_extension tag="classmethod" new="2"}
 
@@ -258,7 +259,7 @@ Retokenize the document, such that the span is merged into a single token.
 | `**attributes` | -       | Attributes to assign to the merged token. By default, attributes are inherited from the syntactic root token of the span. |
 | **RETURNS**    | `Token` | The newly merged token.                                                                                                   |
 
-## Span.ents {#ents tag="property" new="2.0.12" model="ner"}
+## Span.ents {#ents tag="property" new="2.0.13" model="ner"}
 
 The named entities in the span. Returns a tuple of named entity `Span` objects,
 if the entity recognizer has been applied.
@@ -463,22 +464,23 @@ The L2 norm of the span's vector representation.
 
 ## Attributes {#attributes}
 
-| Name           | Type         | Description                                                                                                    |
-| -------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| `doc`          | `Doc`        | The parent document.                                                                                           |
-| `sent`         | `Span`       | The sentence span that this span is a part of.                                                                 |
-| `start`        | int          | The token offset for the start of the span.                                                                    |
-| `end`          | int          | The token offset for the end of the span.                                                                      |
-| `start_char`   | int          | The character offset for the start of the span.                                                                |
-| `end_char`     | int          | The character offset for the end of the span.                                                                  |
-| `text`         | unicode      | A unicode representation of the span text.                                                                     |
-| `text_with_ws` | unicode      | The text content of the span with a trailing whitespace character if the last token has one.                   |
-| `orth`         | int          | ID of the verbatim text content.                                                                               |
-| `orth_`        | unicode      | Verbatim text content (identical to `Span.text`). Exists mostly for consistency with the other attributes.     |
-| `label`        | int          | The span's label.                                                                                              |
-| `label_`       | unicode      | The span's label.                                                                                              |
-| `lemma_`       | unicode      | The span's lemma.                                                                                              |
-| `ent_id`       | int          | The hash value of the named entity the token is an instance of.                                                |
-| `ent_id_`      | unicode      | The string ID of the named entity the token is an instance of.                                                 |
-| `sentiment`    | float        | A scalar value indicating the positivity or negativity of the span.                                            |
-| `_`            | `Underscore` | User space for adding custom [attribute extensions](/usage/processing-pipelines#custom-components-attributes). |
+| Name                                    | Type         | Description                                                                                                    |
+| --------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `doc`                                   | `Doc`        | The parent document.                                                                                           |
+| `tensor` <Tag variant="new">2.1.7</Tag> | `ndarray`    | The span's slice of the parent `Doc`'s tensor.                                                                 |
+| `sent`                                  | `Span`       | The sentence span that this span is a part of.                                                                 |
+| `start`                                 | int          | The token offset for the start of the span.                                                                    |
+| `end`                                   | int          | The token offset for the end of the span.                                                                      |
+| `start_char`                            | int          | The character offset for the start of the span.                                                                |
+| `end_char`                              | int          | The character offset for the end of the span.                                                                  |
+| `text`                                  | unicode      | A unicode representation of the span text.                                                                     |
+| `text_with_ws`                          | unicode      | The text content of the span with a trailing whitespace character if the last token has one.                   |
+| `orth`                                  | int          | ID of the verbatim text content.                                                                               |
+| `orth_`                                 | unicode      | Verbatim text content (identical to `Span.text`). Exists mostly for consistency with the other attributes.     |
+| `label`                                 | int          | The span's label.                                                                                              |
+| `label_`                                | unicode      | The span's label.                                                                                              |
+| `lemma_`                                | unicode      | The span's lemma.                                                                                              |
+| `ent_id`                                | int          | The hash value of the named entity the token is an instance of.                                                |
+| `ent_id_`                               | unicode      | The string ID of the named entity the token is an instance of.                                                 |
+| `sentiment`                             | float        | A scalar value indicating the positivity or negativity of the span.                                            |
+| `_`                                     | `Underscore` | User space for adding custom [attribute extensions](/usage/processing-pipelines#custom-components-attributes). |

@@ -24,7 +24,7 @@ from thinc.neural._classes.affine import _set_dimensions_if_needed
 import thinc.extra.load_nlp
 
 from .attrs import ID, ORTH, LOWER, NORM, PREFIX, SUFFIX, SHAPE
-from .errors import Errors
+from .errors import Errors, user_warning, Warnings
 from . import util
 
 try:
@@ -299,7 +299,17 @@ def link_vectors_to_models(vocab):
     data = ops.asarray(vectors.data)
     # Set an entry here, so that vectors are accessed by StaticVectors
     # (unideal, I know)
-    thinc.extra.load_nlp.VECTORS[(ops.device, vectors.name)] = data
+    key = (ops.device, vectors.name)
+    if key in thinc.extra.load_nlp.VECTORS:
+        if thinc.extra.load_nlp.VECTORS[key].shape != data.shape:
+            # This is a hack to avoid the problem in #3853. Maybe we should
+            # print a warning as well?
+            old_name = vectors.name
+            new_name = vectors.name + "_%d" % data.shape[0]
+            user_warning(Warnings.W019.format(old=old_name, new=new_name))
+            vectors.name = new_name
+            key = (ops.device, vectors.name)
+    thinc.extra.load_nlp.VECTORS[key] = data
 
 
 def PyTorchBiLSTM(nO, nI, depth, dropout=0.2):
@@ -652,6 +662,40 @@ def build_simple_cnn_text_classifier(tok2vec, nr_class, exclusive_classes=False,
     return model
 
 
+def build_nel_encoder(embed_width, hidden_width, ner_types, **cfg):
+    if "entity_width" not in cfg:
+        raise ValueError(Errors.E144.format(param="entity_width"))
+
+    conv_depth = cfg.get("conv_depth", 2)
+    cnn_maxout_pieces = cfg.get("cnn_maxout_pieces", 3)
+    pretrained_vectors = cfg.get("pretrained_vectors", None)
+    context_width = cfg.get("entity_width")
+
+    with Model.define_operators({">>": chain, "**": clone}):
+        # context encoder
+        tok2vec = Tok2Vec(
+            width=hidden_width,
+            embed_size=embed_width,
+            pretrained_vectors=pretrained_vectors,
+            cnn_maxout_pieces=cnn_maxout_pieces,
+            subword_features=True,
+            conv_depth=conv_depth,
+            bilstm_depth=0,
+        )
+
+        model = (
+            tok2vec
+            >> flatten_add_lengths
+            >> Pooling(mean_pool)
+            >> Residual(zero_init(Maxout(hidden_width, hidden_width)))
+            >> zero_init(Affine(context_width, hidden_width, drop_factor=0.0))
+        )
+
+        model.tok2vec = tok2vec
+        model.nO = context_width
+    return model
+
+
 @layerize
 def flatten(seqs, drop=0.0):
     ops = Model.ops
@@ -764,3 +808,18 @@ def _replace_word(word, random_words, mask="[MASK]"):
         return random_words.next()
     else:
         return word
+
+
+def get_cossim_loss(yh, y):
+    # Add a small constant to avoid 0 vectors
+    yh = yh + 1e-8
+    y = y + 1e-8
+    # https://math.stackexchange.com/questions/1923613/partial-derivative-of-cosine-similarity
+    xp = get_array_module(yh)
+    norm_yh = xp.linalg.norm(yh, axis=1, keepdims=True)
+    norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
+    mul_norms = norm_yh * norm_y
+    cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
+    d_yh = (y / mul_norms) - (cosine * (yh / norm_yh ** 2))
+    loss = xp.abs(cosine - 1).sum()
+    return loss, -d_yh

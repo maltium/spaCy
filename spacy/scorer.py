@@ -52,6 +52,7 @@ class Scorer(object):
         self.labelled = PRFScore()
         self.tags = PRFScore()
         self.ner = PRFScore()
+        self.ner_per_ents = dict()
         self.eval_punct = eval_punct
 
     @property
@@ -92,6 +93,15 @@ class Scorer(object):
         return self.ner.fscore * 100
 
     @property
+    def ents_per_type(self):
+        """RETURNS (dict): Scores per entity label.
+        """
+        return {
+            k: {"p": v.precision * 100, "r": v.recall * 100, "f": v.fscore * 100}
+            for k, v in self.ner_per_ents.items()
+        }
+
+    @property
     def scores(self):
         """RETURNS (dict): All scores with keys `uas`, `las`, `ents_p`,
             `ents_r`, `ents_f`, `tags_acc` and `token_acc`.
@@ -102,6 +112,7 @@ class Scorer(object):
             "ents_p": self.ents_p,
             "ents_r": self.ents_r,
             "ents_f": self.ents_f,
+            "ents_per_type": self.ents_per_type,
             "tags_acc": self.tags_acc,
             "token_acc": self.token_acc,
         }
@@ -148,14 +159,33 @@ class Scorer(object):
                 else:
                     cand_deps.add((gold_i, gold_head, token.dep_.lower()))
         if "-" not in [token[-1] for token in gold.orig_annot]:
+            # Find all NER labels in gold and doc
+            ent_labels = set([x[0] for x in gold_ents] + [k.label_ for k in doc.ents])
+            # Set up all labels for per type scoring and prepare gold per type
+            gold_per_ents = {ent_label: set() for ent_label in ent_labels}
+            for ent_label in ent_labels:
+                if ent_label not in self.ner_per_ents:
+                    self.ner_per_ents[ent_label] = PRFScore()
+                gold_per_ents[ent_label].update(
+                    [x for x in gold_ents if x[0] == ent_label]
+                )
+            # Find all candidate labels, for all and per type
             cand_ents = set()
+            cand_per_ents = {ent_label: set() for ent_label in ent_labels}
             for ent in doc.ents:
                 first = gold.cand_to_gold[ent.start]
                 last = gold.cand_to_gold[ent.end - 1]
                 if first is None or last is None:
                     self.ner.fp += 1
+                    self.ner_per_ents[ent.label_].fp += 1
                 else:
                     cand_ents.add((ent.label_, first, last))
+                    cand_per_ents[ent.label_].add((ent.label_, first, last))
+            # Scores per ent
+            for k, v in self.ner_per_ents.items():
+                if k in cand_per_ents:
+                    v.score_set(cand_per_ents[k], gold_per_ents[k])
+            # Score for all ents
             self.ner.score_set(cand_ents, gold_ents)
         self.tags.score_set(cand_tags, gold_tags)
         self.labelled.score_set(cand_deps, gold_deps)

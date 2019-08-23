@@ -14,7 +14,9 @@ import srsly
 from .tokenizer import Tokenizer
 from .vocab import Vocab
 from .lemmatizer import Lemmatizer
-from .pipeline import DependencyParser, Tensorizer, Tagger, EntityRecognizer, EntityLinker
+from .lookups import Lookups
+from .pipeline import DependencyParser, Tagger
+from .pipeline import Tensorizer, EntityRecognizer, EntityLinker
 from .pipeline import SimilarityHook, TextCategorizer, Sentencizer
 from .pipeline import merge_noun_chunks, merge_entities, merge_subtokens
 from .pipeline import EntityRuler
@@ -35,14 +37,23 @@ from . import about
 
 class BaseDefaults(object):
     @classmethod
-    def create_lemmatizer(cls, nlp=None):
-        return Lemmatizer(
-            cls.lemma_index, cls.lemma_exc, cls.lemma_rules, cls.lemma_lookup
-        )
+    def create_lemmatizer(cls, nlp=None, lookups=None):
+        lemma_rules, lemma_index, lemma_exc, lemma_lookup = util.get_lemma_tables(lookups)
+        return Lemmatizer(lemma_index, lemma_exc, lemma_rules, lemma_lookup)
+
+    @classmethod
+    def create_lookups(cls, nlp=None):
+        root_path = util.get_module_path(cls)
+        lookups = Lookups()
+        for name, filename in cls.resources.items():
+            data = util.load_language_data(root_path / filename)
+            lookups.add_table(name, data)
+        return lookups
 
     @classmethod
     def create_vocab(cls, nlp=None):
-        lemmatizer = cls.create_lemmatizer(nlp)
+        lookups = cls.create_lookups(nlp)
+        lemmatizer = cls.create_lemmatizer(nlp, lookups=lookups)
         lex_attr_getters = dict(cls.lex_attr_getters)
         # This is messy, but it's the minimal working fix to Issue #639.
         lex_attr_getters[IS_STOP] = functools.partial(is_stop, stops=cls.stop_words)
@@ -50,6 +61,7 @@ class BaseDefaults(object):
             lex_attr_getters=lex_attr_getters,
             tag_map=cls.tag_map,
             lemmatizer=lemmatizer,
+            lookups=lookups,
         )
         for tag_str, exc in cls.morph_rules.items():
             for orth_str, attrs in exc.items():
@@ -94,6 +106,7 @@ class BaseDefaults(object):
     morph_rules = {}
     lex_attr_getters = LEX_ATTRS
     syntax_iterators = {}
+    resources = {}
     writing_system = {"direction": "ltr", "has_case": True, "has_letters": True}
 
 
@@ -158,6 +171,9 @@ class Language(object):
             vocab = factory(self, **meta.get("vocab", {}))
             if vocab.vectors.name is None:
                 vocab.vectors.name = meta.get("vectors", {}).get("name")
+        else:
+            if (self.lang and vocab.lang) and (self.lang != vocab.lang):
+                raise ValueError(Errors.E150.format(nlp=self.lang, vocab=vocab.lang))
         self.vocab = vocab
         if make_doc is True:
             factory = self.Defaults.create_tokenizer
@@ -173,7 +189,10 @@ class Language(object):
 
     @property
     def meta(self):
-        self._meta.setdefault("lang", self.vocab.lang)
+        if self.vocab.lang:
+            self._meta.setdefault("lang", self.vocab.lang)
+        else:
+            self._meta.setdefault("lang", self.lang)
         self._meta.setdefault("name", "model")
         self._meta.setdefault("version", "0.0.0")
         self._meta.setdefault("spacy_version", ">={}".format(about.__version__))
@@ -423,6 +442,7 @@ class Language(object):
 
         DOCS: https://spacy.io/api/language#update
         """
+        expected_keys = ("words", "tags", "heads", "deps", "entities", "cats", "links")
         if len(docs) != len(golds):
             raise IndexError(Errors.E009.format(n_docs=len(docs), n_golds=len(golds)))
         if len(docs) == 0:
@@ -438,6 +458,10 @@ class Language(object):
             if isinstance(doc, basestring_):
                 doc = self.make_doc(doc)
             if not isinstance(gold, GoldParse):
+                unexpected = [k for k in gold if k not in expected_keys]
+                if unexpected:
+                    err = Errors.E151.format(unexp=unexpected, exp=expected_keys)
+                    raise ValueError(err)
                 gold = GoldParse(doc, **gold)
             doc_objs.append(doc)
             gold_objs.append(gold)
@@ -618,16 +642,20 @@ class Language(object):
         if component_cfg is None:
             component_cfg = {}
         docs, golds = zip(*docs_golds)
-        docs = list(docs)
+        docs = [
+            self.make_doc(doc) if isinstance(doc, basestring_) else doc for doc in docs
+        ]
         golds = list(golds)
         for name, pipe in self.pipeline:
             kwargs = component_cfg.get(name, {})
             kwargs.setdefault("batch_size", batch_size)
             if not hasattr(pipe, "pipe"):
-                docs = (pipe(doc, **kwargs) for doc in docs)
+                docs = _pipe(pipe, docs, kwargs)
             else:
                 docs = pipe.pipe(docs, **kwargs)
         for doc, gold in zip(docs, golds):
+            if not isinstance(gold, GoldParse):
+                gold = GoldParse(doc, **gold)
             if verbose:
                 print(doc)
             kwargs = component_cfg.get("scorer", {})
@@ -767,8 +795,12 @@ class Language(object):
             exclude = disable
         path = util.ensure_path(path)
         serializers = OrderedDict()
-        serializers["tokenizer"] = lambda p: self.tokenizer.to_disk(p, exclude=["vocab"])
-        serializers["meta.json"] = lambda p: p.open("w").write(srsly.json_dumps(self.meta))
+        serializers["tokenizer"] = lambda p: self.tokenizer.to_disk(
+            p, exclude=["vocab"]
+        )
+        serializers["meta.json"] = lambda p: p.open("w").write(
+            srsly.json_dumps(self.meta)
+        )
         for name, proc in self.pipeline:
             if not hasattr(proc, "name"):
                 continue
@@ -797,14 +829,20 @@ class Language(object):
         path = util.ensure_path(path)
         deserializers = OrderedDict()
         deserializers["meta.json"] = lambda p: self.meta.update(srsly.read_json(p))
-        deserializers["vocab"] = lambda p: self.vocab.from_disk(p) and _fix_pretrained_vectors_name(self)
-        deserializers["tokenizer"] = lambda p: self.tokenizer.from_disk(p, exclude=["vocab"])
+        deserializers["vocab"] = lambda p: self.vocab.from_disk(
+            p
+        ) and _fix_pretrained_vectors_name(self)
+        deserializers["tokenizer"] = lambda p: self.tokenizer.from_disk(
+            p, exclude=["vocab"]
+        )
         for name, proc in self.pipeline:
             if name in exclude:
                 continue
             if not hasattr(proc, "from_disk"):
                 continue
-            deserializers[name] = lambda p, proc=proc: proc.from_disk(p, exclude=["vocab"])
+            deserializers[name] = lambda p, proc=proc: proc.from_disk(
+                p, exclude=["vocab"]
+            )
         if not (path / "vocab").exists() and "vocab" not in exclude:
             # Convert to list here in case exclude is (default) tuple
             exclude = list(exclude) + ["vocab"]
@@ -850,14 +888,20 @@ class Language(object):
             exclude = disable
         deserializers = OrderedDict()
         deserializers["meta.json"] = lambda b: self.meta.update(srsly.json_loads(b))
-        deserializers["vocab"] = lambda b: self.vocab.from_bytes(b) and _fix_pretrained_vectors_name(self)
-        deserializers["tokenizer"] = lambda b: self.tokenizer.from_bytes(b, exclude=["vocab"])
+        deserializers["vocab"] = lambda b: self.vocab.from_bytes(
+            b
+        ) and _fix_pretrained_vectors_name(self)
+        deserializers["tokenizer"] = lambda b: self.tokenizer.from_bytes(
+            b, exclude=["vocab"]
+        )
         for name, proc in self.pipeline:
             if name in exclude:
                 continue
             if not hasattr(proc, "from_bytes"):
                 continue
-            deserializers[name] = lambda b, proc=proc: proc.from_bytes(b, exclude=["vocab"])
+            deserializers[name] = lambda b, proc=proc: proc.from_bytes(
+                b, exclude=["vocab"]
+            )
         exclude = util.get_serialization_exclude(deserializers, exclude, kwargs)
         util.from_bytes(bytes_data, deserializers, exclude)
         return self
