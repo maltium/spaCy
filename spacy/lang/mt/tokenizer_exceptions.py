@@ -9,7 +9,6 @@ for orth in [
     "a.m.",
     "bros.",
     "co.",
-    "co.",
     "corp.",
     "dr.",
     "e.g.",
@@ -29,6 +28,11 @@ for orth in [
     "sen.",
     "st.",
     "vs.",
+    "eċċ.",
+    "eż.",
+    "vol.",
+    "Vol.",
+    "p.",
 ]:
     _exc[orth] = [{ORTH: orth}]
 
