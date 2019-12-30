@@ -1,7 +1,6 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-import pytest
 from spacy.matcher import Matcher
 from spacy.tokens import Doc
 
@@ -15,7 +14,7 @@ def test_issue3951(en_vocab):
         {"OP": "?"},
         {"LOWER": "world"},
     ]
-    matcher.add("TEST", None, pattern)
+    matcher.add("TEST", [pattern])
     doc = Doc(en_vocab, words=["Hello", "my", "new", "world"])
     matches = matcher(doc)
     assert len(matches) == 0

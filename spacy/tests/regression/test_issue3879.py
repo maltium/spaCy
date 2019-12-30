@@ -1,7 +1,6 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-import pytest
 from spacy.matcher import Matcher
 from spacy.tokens import Doc
 
@@ -11,5 +10,5 @@ def test_issue3879(en_vocab):
     assert len(doc) == 5
     pattern = [{"ORTH": "This", "OP": "?"}, {"OP": "?"}, {"ORTH": "test"}]
     matcher = Matcher(en_vocab)
-    matcher.add("TEST", None, pattern)
+    matcher.add("TEST", [pattern])
     assert len(matcher(doc)) == 2  # fails because of a FP match 'is a test'

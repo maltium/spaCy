@@ -1,8 +1,6 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-from pathlib import Path
-
 from .tokenizer_exceptions import TOKENIZER_EXCEPTIONS
 from .stop_words import STOP_WORDS
 from .lex_attrs import LEX_ATTRS
@@ -29,7 +27,6 @@ class PortugueseDefaults(Language.Defaults):
     tag_map = TAG_MAP
     infixes = TOKENIZER_INFIXES
     prefixes = TOKENIZER_PREFIXES
-    resources = {"lemma_lookup": "lemma_lookup.json"}
 
 
 class Portuguese(Language):
