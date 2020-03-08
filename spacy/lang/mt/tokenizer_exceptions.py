@@ -33,6 +33,19 @@ for orth in [
     "vol.",
     "Vol.",
     "p.",
+    "2d", "2D",
+    "3d", "3D",
+    "3g", "3G",
+    "4g", "4G",
+    "5g", "5G",
+    "mp3", "MP3",
+    "mp4", "MP4",
+    "U2",
+    "x86", "x64",
+    "TVM2",
+    "r&b", "R&B",
+    "r&d", "R&D",
+    "E.coli"
 ]:
     _exc[orth] = [{ORTH: orth}]
 

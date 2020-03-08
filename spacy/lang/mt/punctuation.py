@@ -10,8 +10,7 @@ _xemxin = ["ċ", "d", "n", "r", "s", "t", "x", "ż", "z"]
 _prep = ["bi", "da", "di", "fi", "ġo", "li", "ma", "mi", "sa", "ta", "bħa"]
 
 
-_prefixes = (
-    TOKENIZER_PREFIXES +
+_my_prefixes = (
     ["{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article (dropped vowel)
     ["i{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article
     ["għa{}-".format(cons) for cons in _xemxin + ["l"]] +
@@ -25,10 +24,22 @@ _prefixes = (
     ["ħad-", "ħaż-", "san-"]
 )
 
+
+def all_upper(l):
+    return [v.upper() for v in l]
+
+
+def first_upper(l):
+    return [v[0].upper() + v[1:] for v in l]
+
+
+_prefixes = (
+    TOKENIZER_PREFIXES + _my_prefixes + all_upper(_my_prefixes) + first_upper(_my_prefixes)
+)
+
 _suffixes = (
     TOKENIZER_SUFFIXES +
-    [r"[{a}]+a'".format(a=ALPHA)] +
-    ["-il"]
+    [r"[{a}]+a'".format(a=ALPHA)] + ["-il"]
 )
 
 _infixes = (
