@@ -462,3 +462,6 @@ cdef enum symbol_t:
     acl
 
     ENT_KB_ID
+    ENT_ID
+
+    IDX

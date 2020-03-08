@@ -367,7 +367,7 @@ class Tensorizer(Pipe):
         return sgd
 
 
-@component("tagger", assigns=["token.tag", "token.pos"])
+@component("tagger", assigns=["token.tag", "token.pos", "token.lemma"])
 class Tagger(Pipe):
     """Pipeline component for part-of-speech tagging.
 
@@ -1044,6 +1044,7 @@ class TextCategorizer(Pipe):
                     self.add_label(cat)
         if self.model is True:
             self.cfg["pretrained_vectors"] = kwargs.get("pretrained_vectors")
+            self.cfg["pretrained_dims"] = kwargs.get("pretrained_dims")
             self.require_labels()
             self.model = self.Model(len(self.labels), **self.cfg)
             link_vectors_to_models(self.vocab)
@@ -1142,7 +1143,7 @@ cdef class EntityRecognizer(Parser):
 
 @component(
     "entity_linker",
-    requires=["doc.ents", "token.ent_iob", "token.ent_type"],
+    requires=["doc.ents", "doc.sents", "token.ent_iob", "token.ent_type"],
     assigns=["token.ent_kb_id"]
 )
 class EntityLinker(Pipe):
@@ -1220,13 +1221,20 @@ class EntityLinker(Pipe):
             for entity, kb_dict in gold.links.items():
                 start, end = entity
                 mention = doc.text[start:end]
+
                 # the gold annotations should link to proper entities - if this fails, the dataset is likely corrupt
+                if not (start, end) in ents_by_offset:
+                    raise RuntimeError(Errors.E188)
                 ent = ents_by_offset[(start, end)]
 
                 for kb_id, value in kb_dict.items():
                     # Currently only training on the positive instances
                     if value:
-                        sentence_docs.append(ent.sent.as_doc())
+                        try:
+                            sentence_docs.append(ent.sent.as_doc())
+                        except AttributeError:
+                            # Catch the exception when ent.sent is None and provide a user-friendly warning
+                            raise RuntimeError(Errors.E030)
 
         sentence_encodings, bp_context = self.model.begin_update(sentence_docs, drop=drop)
         loss, d_scores = self.get_similarity_loss(scores=sentence_encodings, golds=golds, docs=None)
@@ -1301,8 +1309,8 @@ class EntityLinker(Pipe):
         for i, doc in enumerate(docs):
             if len(doc) > 0:
                 # Looping through each sentence and each entity
-                # This may go wrong if there are entities across sentences - because they might not get a KB ID
-                for sent in doc.ents:
+                # This may go wrong if there are entities across sentences - which shouldn't happen normally.
+                for sent in doc.sents:
                     sent_doc = sent.as_doc()
                     # currently, the context is the same for each entity in a sentence (should be refined)
                     sentence_encoding = self.model([sent_doc])[0]
@@ -1464,20 +1472,59 @@ class Sentencizer(object):
 
         DOCS: https://spacy.io/api/sentencizer#call
         """
-        start = 0
-        seen_period = False
-        for i, token in enumerate(doc):
-            is_in_punct_chars = token.text in self.punct_chars
-            token.is_sent_start = i == 0
-            if seen_period and not token.is_punct and not is_in_punct_chars:
-                doc[start].is_sent_start = True
-                start = token.i
-                seen_period = False
-            elif is_in_punct_chars:
-                seen_period = True
-        if start < len(doc):
-            doc[start].is_sent_start = True
+        tags = self.predict([doc])
+        self.set_annotations([doc], tags)
         return doc
+
+    def pipe(self, stream, batch_size=128, n_threads=-1):
+        for docs in util.minibatch(stream, size=batch_size):
+            docs = list(docs)
+            tag_ids = self.predict(docs)
+            self.set_annotations(docs, tag_ids)
+            yield from docs
+
+    def predict(self, docs):
+        """Apply the pipeline's model to a batch of docs, without
+        modifying them.
+        """
+        if not any(len(doc) for doc in docs):
+            # Handle cases where there are no tokens in any docs.
+            guesses = [[] for doc in docs]
+            return guesses
+        guesses = []
+        for doc in docs:
+            doc_guesses = [False] * len(doc)
+            if len(doc) > 0:
+                start = 0
+                seen_period = False
+                doc_guesses[0] = True
+                for i, token in enumerate(doc):
+                    is_in_punct_chars = token.text in self.punct_chars
+                    if seen_period and not token.is_punct and not is_in_punct_chars:
+                        doc_guesses[start] = True
+                        start = token.i
+                        seen_period = False
+                    elif is_in_punct_chars:
+                        seen_period = True
+                if start < len(doc):
+                    doc_guesses[start] = True
+            guesses.append(doc_guesses)
+        return guesses
+
+    def set_annotations(self, docs, batch_tag_ids, tensors=None):
+        if isinstance(docs, Doc):
+            docs = [docs]
+        cdef Doc doc
+        cdef int idx = 0
+        for i, doc in enumerate(docs):
+            doc_tag_ids = batch_tag_ids[i]
+            for j, tag_id in enumerate(doc_tag_ids):
+                # Don't clobber existing sentence boundaries
+                if doc.c[j].sent_start == 0:
+                    if tag_id:
+                        doc.c[j].sent_start = 1
+                    else:
+                        doc.c[j].sent_start = -1
 
     def to_bytes(self, **kwargs):
         """Serialize the sentencizer to a bytestring.

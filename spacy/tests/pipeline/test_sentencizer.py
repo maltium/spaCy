@@ -5,6 +5,7 @@ import pytest
 import spacy
 from spacy.pipeline import Sentencizer
 from spacy.tokens import Doc
+from spacy.lang.en import English
 
 
 def test_sentencizer(en_vocab):
@@ -15,6 +16,33 @@ def test_sentencizer(en_vocab):
     sent_starts = [t.is_sent_start for t in doc]
     assert sent_starts == [True, False, True, False, False, False, False]
     assert len(list(doc.sents)) == 2
+
+
+def test_sentencizer_pipe():
+    texts = ["Hello! This is a test.", "Hi! This is a test."]
+    nlp = English()
+    nlp.add_pipe(nlp.create_pipe("sentencizer"))
+    for doc in nlp.pipe(texts):
+        assert doc.is_sentenced
+        sent_starts = [t.is_sent_start for t in doc]
+        assert sent_starts == [True, False, True, False, False, False, False]
+        assert len(list(doc.sents)) == 2
+
+
+def test_sentencizer_empty_docs():
+    one_empty_text = [""]
+    many_empty_texts = ["", "", ""]
+    some_empty_texts = ["hi", "", "This is a test. Here are two sentences.", ""]
+    nlp = English()
+    nlp.add_pipe(nlp.create_pipe("sentencizer"))
+    for texts in [one_empty_text, many_empty_texts, some_empty_texts]:
+        for doc in nlp.pipe(texts):
+            assert doc.is_sentenced
+            sent_starts = [t.is_sent_start for t in doc]
+            if len(doc) == 0:
+                assert sent_starts == []
+            else:
+                assert len(sent_starts) > 0
 
 
 @pytest.mark.parametrize(

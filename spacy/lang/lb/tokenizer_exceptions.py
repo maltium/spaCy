@@ -10,7 +10,11 @@ _exc = {}
 
 # translate / delete what is not necessary
 for exc_data in [
-    {ORTH: "wgl.", LEMMA: "wann ech gelift", NORM: "wann ech gelieft"},
+    {ORTH: "’t", LEMMA: "et", NORM: "et"},
+    {ORTH: "’T", LEMMA: "et", NORM: "et"},
+    {ORTH: "'t", LEMMA: "et", NORM: "et"},
+    {ORTH: "'T", LEMMA: "et", NORM: "et"},
+    {ORTH: "wgl.", LEMMA: "wannechgelift", NORM: "wannechgelift"},
     {ORTH: "M.", LEMMA: "Monsieur", NORM: "Monsieur"},
     {ORTH: "Mme.", LEMMA: "Madame", NORM: "Madame"},
     {ORTH: "Dr.", LEMMA: "Dokter", NORM: "Dokter"},
