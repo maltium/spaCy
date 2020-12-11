@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 # coding: utf8
 
-"""Example of training spaCy's entity linker, starting off with an
-existing model and a pre-defined knowledge base.
+"""Example of training spaCy's entity linker, starting off with a predefined
+knowledge base and corresponding vocab, and a blank English model.
 
 For more details, see the documentation:
 * Training: https://spacy.io/usage/training
 * Entity Linking: https://spacy.io/usage/linguistic-features#entity-linking
 
-Compatible with: spaCy v2.2.3
-Last tested with: v2.2.3
+Compatible with: spaCy v2.2.4
+Last tested with: v2.3.4
 """
 from __future__ import unicode_literals, print_function
 
@@ -17,13 +17,11 @@ import plac
 import random
 from pathlib import Path
 
-from spacy.symbols import PERSON
 from spacy.vocab import Vocab
 
 import spacy
 from spacy.kb import KnowledgeBase
 from spacy.pipeline import EntityRuler
-from spacy.tokens import Span
 from spacy.util import minibatch, compounding
 
 
@@ -62,12 +60,12 @@ TRAIN_DATA = sample_train_data()
     output_dir=("Optional output directory", "option", "o", Path),
     n_iter=("Number of training iterations", "option", "n", int),
 )
-def main(kb_path, vocab_path=None, output_dir=None, n_iter=50):
+def main(kb_path, vocab_path, output_dir=None, n_iter=50):
     """Create a blank model with the specified vocab, set up the pipeline and train the entity linker.
     The `vocab` should be the one used during creation of the KB."""
-    vocab = Vocab().from_disk(vocab_path)
-    # create blank Language class with correct vocab
-    nlp = spacy.blank("en", vocab=vocab)
+    # create blank English model with correct vocab
+    nlp = spacy.blank("en")
+    nlp.vocab.from_disk(vocab_path)
     nlp.vocab.vectors.name = "spacy_pretrained_vectors"
     print("Created blank 'en' model with vocab from '%s'" % vocab_path)
 
@@ -93,7 +91,7 @@ def main(kb_path, vocab_path=None, output_dir=None, n_iter=50):
         nlp.add_pipe(entity_linker, last=True)
 
     # Convert the texts to docs to make sure we have doc.ents set for the training examples.
-    # Also ensure that the annotated examples correspond to known identifiers in the knowlege base.
+    # Also ensure that the annotated examples correspond to known identifiers in the knowledge base.
     kb_ids = nlp.get_pipe("entity_linker").kb.get_entity_strings()
     TRAIN_DOCS = []
     for text, annotation in TRAIN_DATA:

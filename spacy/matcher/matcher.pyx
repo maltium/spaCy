@@ -3,23 +3,25 @@
 from __future__ import unicode_literals
 
 from libcpp.vector cimport vector
-from libc.stdint cimport int32_t
+from libc.stdint cimport int32_t, int8_t
 from cymem.cymem cimport Pool
 from murmurhash.mrmr cimport hash64
 
 import re
 import srsly
+import warnings
 
 from ..typedefs cimport attr_t
 from ..structs cimport TokenC
 from ..vocab cimport Vocab
-from ..tokens.doc cimport Doc, get_token_attr
+from ..tokens.doc cimport Doc, get_token_attr_for_matcher
+from ..tokens.span cimport Span
 from ..tokens.token cimport Token
 from ..attrs cimport ID, attr_id_t, NULL_ATTR, ORTH, POS, TAG, DEP, LEMMA
 
 from ._schemas import TOKEN_PATTERN_SCHEMA
 from ..util import get_json_validator, validate_json
-from ..errors import Errors, MatchPatternError, Warnings, deprecation_warning
+from ..errors import Errors, MatchPatternError, Warnings
 from ..strings import get_string_id
 from ..attrs import IDS
 
@@ -194,7 +196,7 @@ cdef class Matcher:
         YIELDS (Doc): Documents, in order.
         """
         if n_threads != -1:
-            deprecation_warning(Warnings.W016)
+            warnings.warn(Warnings.W016, DeprecationWarning)
 
         if as_tuples:
             for doc, context in docs:
@@ -211,22 +213,29 @@ cdef class Matcher:
                 else:
                     yield doc
 
-    def __call__(self, Doc doc):
+    def __call__(self, object doclike):
         """Find all token sequences matching the supplied pattern.
 
-        doc (Doc): The document to match over.
+        doclike (Doc or Span): The document to match over.
         RETURNS (list): A list of `(key, start, end)` tuples,
             describing the matches. A match tuple describes a span
             `doc[start:end]`. The `label_id` and `key` are both integers.
         """
+        if isinstance(doclike, Doc):
+            doc = doclike
+            length = len(doc)
+        elif isinstance(doclike, Span):
+            doc = doclike.doc
+            length = doclike.end - doclike.start
+        else:
+            raise ValueError(Errors.E195.format(good="Doc or Span", got=type(doclike).__name__))
         if len(set([LEMMA, POS, TAG]) & self._seen_attrs) > 0 \
           and not doc.is_tagged:
             raise ValueError(Errors.E155.format())
         if DEP in self._seen_attrs and not doc.is_parsed:
             raise ValueError(Errors.E156.format())
-        matches = find_matches(&self.patterns[0], self.patterns.size(), doc,
-                               extensions=self._extensions,
-                               predicates=self._extra_predicates)
+        matches = find_matches(&self.patterns[0], self.patterns.size(), doclike, length,
+                                extensions=self._extensions, predicates=self._extra_predicates)
         for i, (key, start, end) in enumerate(matches):
             on_match = self._callbacks.get(key, None)
             if on_match is not None:
@@ -248,9 +257,7 @@ def unpickle_matcher(vocab, patterns, callbacks):
     return matcher
 
 
-
-cdef find_matches(TokenPatternC** patterns, int n, Doc doc, extensions=None,
-        predicates=tuple()):
+cdef find_matches(TokenPatternC** patterns, int n, object doclike, int length, extensions=None, predicates=tuple()):
     """Find matches in a doc, with a compiled array of patterns. Matches are
     returned as a list of (id, start, end) tuples.
 
@@ -268,18 +275,18 @@ cdef find_matches(TokenPatternC** patterns, int n, Doc doc, extensions=None,
     cdef int i, j, nr_extra_attr
     cdef Pool mem = Pool()
     output = []
-    if doc.length == 0:
+    if length == 0:
         # avoid any processing or mem alloc if the document is empty
         return output
     if len(predicates) > 0:
-        predicate_cache = <char*>mem.alloc(doc.length * len(predicates), sizeof(char))
+        predicate_cache = <int8_t*>mem.alloc(length * len(predicates), sizeof(int8_t))
     if extensions is not None and len(extensions) >= 1:
         nr_extra_attr = max(extensions.values()) + 1
-        extra_attr_values = <attr_t*>mem.alloc(doc.length * nr_extra_attr, sizeof(attr_t))
+        extra_attr_values = <attr_t*>mem.alloc(length * nr_extra_attr, sizeof(attr_t))
     else:
         nr_extra_attr = 0
-        extra_attr_values = <attr_t*>mem.alloc(doc.length, sizeof(attr_t))
-    for i, token in enumerate(doc):
+        extra_attr_values = <attr_t*>mem.alloc(length, sizeof(attr_t))
+    for i, token in enumerate(doclike):
         for name, index in extensions.items():
             value = token._.get(name)
             if isinstance(value, basestring):
@@ -287,11 +294,11 @@ cdef find_matches(TokenPatternC** patterns, int n, Doc doc, extensions=None,
             extra_attr_values[i * nr_extra_attr + index] = value
     # Main loop
     cdef int nr_predicate = len(predicates)
-    for i in range(doc.length):
+    for i in range(length):
         for j in range(n):
             states.push_back(PatternStateC(patterns[j], i, 0))
         transition_states(states, matches, predicate_cache,
-            doc[i], extra_attr_values, predicates)
+            doclike[i], extra_attr_values, predicates)
         extra_attr_values += nr_extra_attr
         predicate_cache += len(predicates)
     # Handle matches that end in 0-width patterns
@@ -313,7 +320,7 @@ cdef find_matches(TokenPatternC** patterns, int n, Doc doc, extensions=None,
 
 
 cdef void transition_states(vector[PatternStateC]& states, vector[MatchC]& matches,
-                            char* cached_py_predicates,
+                            int8_t* cached_py_predicates,
         Token token, const attr_t* extra_attrs, py_predicates) except *:
     cdef int q = 0
     cdef vector[PatternStateC] new_states
@@ -385,7 +392,7 @@ cdef void transition_states(vector[PatternStateC]& states, vector[MatchC]& match
         states.push_back(new_states[i])
 
 
-cdef int update_predicate_cache(char* cache,
+cdef int update_predicate_cache(int8_t* cache,
         const TokenPatternC* pattern, Token token, predicates) except -1:
     # If the state references any extra predicates, check whether they match.
     # These are cached, so that we don't call these potentially expensive
@@ -423,7 +430,7 @@ cdef void finish_states(vector[MatchC]& matches, vector[PatternStateC]& states) 
 
 cdef action_t get_action(PatternStateC state,
         const TokenC* token, const attr_t* extra_attrs,
-        const char* predicate_matches) nogil:
+        const int8_t* predicate_matches) nogil:
     """We need to consider:
     a) Does the token match the specification? [Yes, No]
     b) What's the quantifier? [1, 0+, ?]
@@ -481,7 +488,7 @@ cdef action_t get_action(PatternStateC state,
 
     Problem: If a quantifier is matching, we're adding a lot of open partials
     """
-    cdef char is_match
+    cdef int8_t is_match
     is_match = get_is_match(state, token, extra_attrs, predicate_matches)
     quantifier = get_quantifier(state)
     is_final = get_is_final(state)
@@ -533,16 +540,16 @@ cdef action_t get_action(PatternStateC state,
           return RETRY
 
 
-cdef char get_is_match(PatternStateC state,
+cdef int8_t get_is_match(PatternStateC state,
         const TokenC* token, const attr_t* extra_attrs,
-        const char* predicate_matches) nogil:
+        const int8_t* predicate_matches) nogil:
     for i in range(state.pattern.nr_py):
         if predicate_matches[state.pattern.py_predicates[i]] == -1:
             return 0
     spec = state.pattern
     if spec.nr_attr > 0:
         for attr in spec.attrs[:spec.nr_attr]:
-            if get_token_attr(token, attr.attr) != attr.value:
+            if get_token_attr_for_matcher(token, attr.attr) != attr.value:
                 return 0
     for i in range(spec.nr_extra_attr):
         if spec.extra_attrs[i].value != extra_attrs[spec.extra_attrs[i].index]:
@@ -550,8 +557,8 @@ cdef char get_is_match(PatternStateC state,
     return True
 
 
-cdef char get_is_final(PatternStateC state) nogil:
-    if state.pattern[1].nr_attr == 0 and state.pattern[1].attrs != NULL:
+cdef int8_t get_is_final(PatternStateC state) nogil:
+    if state.pattern[1].quantifier == FINAL_ID:
         id_attr = state.pattern[1].attrs[0]
         if id_attr.attr != ID:
             with gil:
@@ -561,7 +568,7 @@ cdef char get_is_final(PatternStateC state) nogil:
         return 0
 
 
-cdef char get_quantifier(PatternStateC state) nogil:
+cdef int8_t get_quantifier(PatternStateC state) nogil:
     return state.pattern.quantifier
 
 
@@ -590,36 +597,20 @@ cdef TokenPatternC* init_pattern(Pool mem, attr_t entity_id, object token_specs)
         pattern[i].nr_py = len(predicates)
         pattern[i].key = hash64(pattern[i].attrs, pattern[i].nr_attr * sizeof(AttrValueC), 0)
     i = len(token_specs)
-    # Even though here, nr_attr == 0, we're storing the ID value in attrs[0] (bug-prone, thread carefully!)
-    pattern[i].attrs = <AttrValueC*>mem.alloc(2, sizeof(AttrValueC))
+    # Use quantifier to identify final ID pattern node (rather than previous
+    # uninitialized quantifier == 0/ZERO + nr_attr == 0 + non-zero-length attrs)
+    pattern[i].quantifier = FINAL_ID
+    pattern[i].attrs = <AttrValueC*>mem.alloc(1, sizeof(AttrValueC))
     pattern[i].attrs[0].attr = ID
     pattern[i].attrs[0].value = entity_id
-    pattern[i].nr_attr = 0
+    pattern[i].nr_attr = 1
     pattern[i].nr_extra_attr = 0
     pattern[i].nr_py = 0
     return pattern
 
 
 cdef attr_t get_ent_id(const TokenPatternC* pattern) nogil:
-    # There have been a few bugs here. We used to have two functions,
-    # get_ent_id and get_pattern_key that tried to do the same thing. These
-    # are now unified to try to solve the "ghost match" problem.
-    # Below is the previous implementation of get_ent_id and the comment on it,
-    # preserved for reference while we figure out whether the heisenbug in the
-    # matcher is resolved.
-    #
-    #
-    #     cdef attr_t get_ent_id(const TokenPatternC* pattern) nogil:
-    #         # The code was originally designed to always have pattern[1].attrs.value
-    #         # be the ent_id when we get to the end of a pattern. However, Issue #2671
-    #         # showed this wasn't the case when we had a reject-and-continue before a
-    #         # match.
-    #         # The patch to #2671 was wrong though, which came up in #3839.
-    #         while pattern.attrs.attr != ID:
-    #             pattern += 1
-    #         return pattern.attrs.value
-    while pattern.nr_attr != 0 or pattern.nr_extra_attr != 0 or pattern.nr_py != 0 \
-            or pattern.quantifier != ZERO:
+    while pattern.quantifier != FINAL_ID:
         pattern += 1
     id_attr = pattern[0].attrs[0]
     if id_attr.attr != ID:
@@ -713,7 +704,7 @@ class _RegexPredicate(object):
         if self.is_extension:
             value = token._.get(self.attr)
         else:
-            value = token.vocab.strings[get_token_attr(token.c, self.attr)]
+            value = token.vocab.strings[get_token_attr_for_matcher(token.c, self.attr)]
         return bool(self.value.search(value))
 
 
@@ -734,7 +725,7 @@ class _SetMemberPredicate(object):
         if self.is_extension:
             value = get_string_id(token._.get(self.attr))
         else:
-            value = get_token_attr(token.c, self.attr)
+            value = get_token_attr_for_matcher(token.c, self.attr)
         if self.predicate == "IN":
             return value in self.value
         else:
@@ -761,7 +752,7 @@ class _ComparisonPredicate(object):
         if self.is_extension:
             value = token._.get(self.attr)
         else:
-            value = get_token_attr(token.c, self.attr)
+            value = get_token_attr_for_matcher(token.c, self.attr)
         if self.predicate == "==":
             return value == self.value
         if self.predicate == "!=":
@@ -782,6 +773,7 @@ def _get_extra_predicates(spec, extra_predicates):
         "IN": _SetMemberPredicate,
         "NOT_IN": _SetMemberPredicate,
         "==": _ComparisonPredicate,
+        "!=": _ComparisonPredicate,
         ">=": _ComparisonPredicate,
         "<=": _ComparisonPredicate,
         ">": _ComparisonPredicate,
@@ -803,9 +795,11 @@ def _get_extra_predicates(spec, extra_predicates):
                 attr = "ORTH"
             attr = IDS.get(attr.upper())
         if isinstance(value, dict):
+            processed = False
+            value_with_upper_keys = {k.upper(): v for k, v in value.items()}
             for type_, cls in predicate_types.items():
-                if type_ in value:
-                    predicate = cls(len(extra_predicates), attr, value[type_], type_)
+                if type_ in value_with_upper_keys:
+                    predicate = cls(len(extra_predicates), attr, value_with_upper_keys[type_], type_)
                     # Don't create a redundant predicates.
                     # This helps with efficiency, as we're caching the results.
                     if predicate.key in seen_predicates:
@@ -814,6 +808,9 @@ def _get_extra_predicates(spec, extra_predicates):
                         extra_predicates.append(predicate)
                         output.append(predicate.i)
                         seen_predicates[predicate.key] = predicate.i
+                    processed = True
+            if not processed:
+                warnings.warn(Warnings.W035.format(pattern=value))
     return output
 
 

@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import numpy
+import warnings
 from thinc.v2v import Model, Maxout, Softmax, Affine, ReLu
 from thinc.t2t import ExtractWindow, ParametricAttention
 from thinc.t2v import Pooling, sum_pool, mean_pool
@@ -13,7 +14,7 @@ from thinc.api import with_getitem, flatten_add_lengths
 from thinc.api import uniqued, wrap, noop
 from thinc.linear.linear import LinearModel
 from thinc.neural.ops import NumpyOps, CupyOps
-from thinc.neural.util import get_array_module, copy_array
+from thinc.neural.util import get_array_module, copy_array, to_categorical
 from thinc.neural.optimizers import Adam
 
 from thinc import describe
@@ -22,7 +23,7 @@ from thinc.neural._classes.affine import _set_dimensions_if_needed
 import thinc.extra.load_nlp
 
 from .attrs import ID, ORTH, LOWER, NORM, PREFIX, SUFFIX, SHAPE
-from .errors import Errors, user_warning, Warnings
+from .errors import Errors, Warnings
 from . import util
 from . import ml as new_ml
 from .ml import _legacy_tok2vec
@@ -278,18 +279,19 @@ class PrecomputableAffine(Model):
                 break
 
 
-def link_vectors_to_models(vocab):
+def link_vectors_to_models(vocab, skip_rank=False):
     vectors = vocab.vectors
     if vectors.name is None:
         vectors.name = VECTORS_KEY
         if vectors.data.size != 0:
-            user_warning(Warnings.W020.format(shape=vectors.data.shape))
+            warnings.warn(Warnings.W020.format(shape=vectors.data.shape))
     ops = Model.ops
-    for word in vocab:
-        if word.orth in vectors.key2row:
-            word.rank = vectors.key2row[word.orth]
-        else:
-            word.rank = 0
+    if not skip_rank:
+        for word in vocab:
+            if word.orth in vectors.key2row:
+                word.rank = vectors.key2row[word.orth]
+            else:
+                word.rank = util.OOV_RANK
     data = ops.asarray(vectors.data)
     # Set an entry here, so that vectors are accessed by StaticVectors
     # (unideal, I know)
@@ -299,7 +301,7 @@ def link_vectors_to_models(vocab):
             # This is a hack to avoid the problem in #3853.
             old_name = vectors.name
             new_name = vectors.name + "_%d" % data.shape[0]
-            user_warning(Warnings.W019.format(old=old_name, new=new_name))
+            warnings.warn(Warnings.W019.format(old=old_name, new=new_name))
             vectors.name = new_name
             key = (ops.device, vectors.name)
     thinc.extra.load_nlp.VECTORS[key] = data
@@ -644,7 +646,7 @@ def build_text_classifier(nr_class, width=64, **cfg):
                 SpacyVectors
                 >> flatten_add_lengths
                 >> with_getitem(0, Affine(width, pretrained_dims))
-                >> ParametricAttention(width)
+                >> ParametricAttention(width, seed=100)
                 >> Pooling(sum_pool)
                 >> Residual(ReLu(width, width)) ** 2
                 >> zero_init(Affine(nr_class, width, drop_factor=0.0))
@@ -652,10 +654,10 @@ def build_text_classifier(nr_class, width=64, **cfg):
             )
             return model
 
-        lower = HashEmbed(width, nr_vector, column=1)
-        prefix = HashEmbed(width // 2, nr_vector, column=2)
-        suffix = HashEmbed(width // 2, nr_vector, column=3)
-        shape = HashEmbed(width // 2, nr_vector, column=4)
+        lower = HashEmbed(width, nr_vector, column=1, seed=10)
+        prefix = HashEmbed(width // 2, nr_vector, column=2, seed=11)
+        suffix = HashEmbed(width // 2, nr_vector, column=3, seed=12)
+        shape = HashEmbed(width // 2, nr_vector, column=4, seed=13)
 
         trained_vectors = FeatureExtracter(
             [ORTH, LOWER, PREFIX, SUFFIX, SHAPE, ID]
@@ -686,16 +688,18 @@ def build_text_classifier(nr_class, width=64, **cfg):
         cnn_model = (
             tok2vec
             >> flatten_add_lengths
-            >> ParametricAttention(width)
+            >> ParametricAttention(width, seed=99)
             >> Pooling(sum_pool)
             >> Residual(zero_init(Maxout(width, width)))
             >> zero_init(Affine(nr_class, width, drop_factor=0.0))
         )
 
         linear_model = build_bow_text_classifier(
-            nr_class, ngram_size=cfg.get("ngram_size", 1), exclusive_classes=False
+            nr_class,
+            ngram_size=cfg.get("ngram_size", 1),
+            exclusive_classes=cfg.get("exclusive_classes", False),
         )
-        if cfg.get("exclusive_classes"):
+        if cfg.get("exclusive_classes", False):
             output_layer = Softmax(nr_class, nr_class * 2)
         else:
             output_layer = (
@@ -836,6 +840,8 @@ def masked_language_model(vocab, model, mask_prob=0.15):
 
         def mlm_backward(d_output, sgd=None):
             d_output *= 1 - mask
+            # Rescale gradient for number of instances.
+            d_output *= mask.size - mask.sum()
             return backprop(d_output, sgd=sgd)
 
         return output, mlm_backward
@@ -940,7 +946,7 @@ class CharacterEmbed(Model):
         # for the tip.
         nCv = self.ops.xp.arange(self.nC)
         for doc in docs:
-            doc_ids = doc.to_utf8_array(nr_char=self.nC)
+            doc_ids = self.ops.asarray(doc.to_utf8_array(nr_char=self.nC))
             doc_vectors = self.ops.allocate((len(doc), self.nC, self.nM))
             # Let's say I have a 2d array of indices, and a 3d table of data. What numpy
             # incantation do I chant to get
@@ -982,3 +988,17 @@ def get_cossim_loss(yh, y, ignore_zeros=False):
         losses[zero_indices] = 0
     loss = losses.sum()
     return loss, -d_yh
+
+
+def get_characters_loss(ops, docs, prediction, nr_char=10):
+    target_ids = numpy.vstack([doc.to_utf8_array(nr_char=nr_char) for doc in docs])
+    target_ids = target_ids.reshape((-1,))
+    target = ops.asarray(to_categorical(target_ids, nb_classes=256), dtype="f")
+    target = target.reshape((-1, 256*nr_char))
+    diff = prediction - target
+    loss = (diff**2).sum()
+    d_target = diff / float(prediction.shape[0])
+    return loss, d_target
+
+
+

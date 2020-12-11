@@ -122,7 +122,7 @@ for match_id, start, end in matches:
 ```
 
 The matcher returns a list of `(match_id, start, end)` tuples – in this case,
-`[('15578876784678163569', 0, 2)]`, which maps to the span `doc[0:2]` of our
+`[('15578876784678163569', 0, 3)]`, which maps to the span `doc[0:3]` of our
 original document. The `match_id` is the [hash value](/usage/spacy-101#vocab) of
 the string ID "HelloWorld". To get the string value, you can look up the ID in
 the [`StringStore`](/api/stringstore).
@@ -157,19 +157,21 @@ The available token pattern keys correspond to a number of
 [`Token` attributes](/api/token#attributes). The supported attributes for
 rule-based matching are:
 
-| Attribute                              | Type    |  Description                                                                                           |
-| -------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `ORTH`                                 | unicode | The exact verbatim text of a token.                                                                    |
-| `TEXT` <Tag variant="new">2.1</Tag>    | unicode | The exact verbatim text of a token.                                                                    |
-| `LOWER`                                | unicode | The lowercase form of the token text.                                                                  |
-|  `LENGTH`                              | int     | The length of the token text.                                                                          |
-|  `IS_ALPHA`, `IS_ASCII`, `IS_DIGIT`    | bool    | Token text consists of alphabetic characters, ASCII characters, digits.                                |
-|  `IS_LOWER`, `IS_UPPER`, `IS_TITLE`    | bool    | Token text is in lowercase, uppercase, titlecase.                                                      |
-|  `IS_PUNCT`, `IS_SPACE`, `IS_STOP`     | bool    | Token is punctuation, whitespace, stop word.                                                           |
-|  `LIKE_NUM`, `LIKE_URL`, `LIKE_EMAIL`  | bool    | Token text resembles a number, URL, email.                                                             |
-|  `POS`, `TAG`, `DEP`, `LEMMA`, `SHAPE` | unicode | The token's simple and extended part-of-speech tag, dependency label, lemma, shape.                    |
-| `ENT_TYPE`                             | unicode | The token's entity label.                                                                              |
-| `_` <Tag variant="new">2.1</Tag>       | dict    | Properties in [custom extension attributes](/usage/processing-pipelines#custom-components-attributes). |
+| Attribute                             | Value Type |  Description                                                                                                                                                                                                                                                              |
+| ------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORTH`                                | unicode    | The exact verbatim text of a token.                                                                                                                                                                                                                                       |
+| `TEXT` <Tag variant="new">2.1</Tag>   | unicode    | The exact verbatim text of a token.                                                                                                                                                                                                                                       |
+| `LOWER`                               | unicode    | The lowercase form of the token text.                                                                                                                                                                                                                                     |
+| `LENGTH`                              | int        | The length of the token text.                                                                                                                                                                                                                                             |
+| `IS_ALPHA`, `IS_ASCII`, `IS_DIGIT`    | bool       | Token text consists of alphabetic characters, ASCII characters, digits.                                                                                                                                                                                                   |
+| `IS_LOWER`, `IS_UPPER`, `IS_TITLE`    | bool       | Token text is in lowercase, uppercase, titlecase.                                                                                                                                                                                                                         |
+| `IS_PUNCT`, `IS_SPACE`, `IS_STOP`     | bool       | Token is punctuation, whitespace, stop word.                                                                                                                                                                                                                              |
+| `IS_SENT_START`                       | bool       | Token is start of sentence.                                                                                                                                                                                                                                               |
+| `SPACY`                               | bool       | Token has a trailing space.                                                                                                                                                                                                                                               |
+| `LIKE_NUM`, `LIKE_URL`, `LIKE_EMAIL`  | bool       | Token text resembles a number, URL, email.                                                                                                                                                                                                                                |
+| `POS`, `TAG`, `DEP`, `LEMMA`, `SHAPE` | unicode    | The token's simple and extended part-of-speech tag, dependency label, lemma, shape. Note that the values of these attributes are case-sensitive. For a list of available part-of-speech tags and dependency labels, see the [Annotation Specifications](/api/annotation). |
+| `ENT_TYPE`                            | unicode    | The token's entity label.                                                                                                                                                                                                                                                 |
+| `_` <Tag variant="new">2.1</Tag>      | dict       | Properties in [custom extension attributes](/usage/processing-pipelines#custom-components-attributes).                                                                                                                                                                    |
 
 <Accordion title="Does it matter if the attribute names are uppercase or lowercase?">
 
@@ -968,7 +970,10 @@ pattern. The entity ruler accepts two types of patterns:
 The [`EntityRuler`](/api/entityruler) is a pipeline component that's typically
 added via [`nlp.add_pipe`](/api/language#add_pipe). When the `nlp` object is
 called on a text, it will find matches in the `doc` and add them as entities to
-the `doc.ents`, using the specified pattern label as the entity label.
+the `doc.ents`, using the specified pattern label as the entity label. If any
+matches were to overlap, the pattern matching most tokens takes priority. If
+they also happen to be equally long, then the match occuring first in the Doc is
+chosen.
 
 ```python
 ### {executable="true"}
@@ -1098,28 +1103,35 @@ powerful model packages with binary weights _and_ rules included!
 
 ### Using a large number of phrase patterns {#entityruler-large-phrase-patterns new="2.2.4"}
 
-When using a large amount of **phrase patterns** (roughly > 10000) it's useful to understand how the `add_patterns` function of the EntityRuler works. For each **phrase pattern**,
-the EntityRuler calls the nlp object to construct a doc object. This happens in case you try
-to add the EntityRuler at the end of an existing pipeline with, for example, a POS tagger and want to 
-extract matches based on the pattern's POS signature.
+When using a large amount of **phrase patterns** (roughly > 10000) it's useful
+to understand how the `add_patterns` function of the EntityRuler works. For each
+**phrase pattern**, the EntityRuler calls the nlp object to construct a doc
+object. This happens in case you try to add the EntityRuler at the end of an
+existing pipeline with, for example, a POS tagger and want to extract matches
+based on the pattern's POS signature.
 
-In this case you would pass a config value of `phrase_matcher_attr="POS"` for the EntityRuler.
+In this case you would pass a config value of `phrase_matcher_attr="POS"` for
+the EntityRuler.
 
-Running the full language pipeline across every pattern in a large list scales linearly and can therefore take a long time on large amounts of phrase patterns.
+Running the full language pipeline across every pattern in a large list scales
+linearly and can therefore take a long time on large amounts of phrase patterns.
 
-As of spaCy 2.2.4 the `add_patterns` function has been refactored to use nlp.pipe on all phrase patterns resulting in about a 10x-20x speed up with 5,000-100,000 phrase patterns respectively. 
+As of spaCy 2.2.4 the `add_patterns` function has been refactored to use
+nlp.pipe on all phrase patterns resulting in about a 10x-20x speed up with
+5,000-100,000 phrase patterns respectively.
 
-Even with this speedup (but especially if you're using an older version) the `add_patterns` function can still take a long time.
+Even with this speedup (but especially if you're using an older version) the
+`add_patterns` function can still take a long time.
 
-An easy workaround to make this function run faster is disabling the other language pipes
-while adding the phrase patterns.
+An easy workaround to make this function run faster is disabling the other
+language pipes while adding the phrase patterns.
 
 ```python
 entityruler = EntityRuler(nlp)
 patterns = [{"label": "TEST", "pattern": str(i)} for i in range(100000)]
 
 other_pipes = [p for p in nlp.pipe_names if p != "tagger"]
-with nlp.disable_pipes(*disable_pipes):
+with nlp.disable_pipes(*other_pipes):
     entityruler.add_patterns(patterns)
 ```
 
@@ -1155,17 +1167,17 @@ what you need for your application.
 > available corpus.
 
 For example, the corpus spaCy's [English models](/models/en) were trained on
-defines a `PERSON` entity as just the **person name**, without titles like "Mr"
-or "Dr". This makes sense, because it makes it easier to resolve the entity type
-back to a knowledge base. But what if your application needs the full names,
-_including_ the titles?
+defines a `PERSON` entity as just the **person name**, without titles like "Mr."
+or "Dr.". This makes sense, because it makes it easier to resolve the entity
+type back to a knowledge base. But what if your application needs the full
+names, _including_ the titles?
 
 ```python
 ### {executable="true"}
 import spacy
 
 nlp = spacy.load("en_core_web_sm")
-doc = nlp("Dr Alex Smith chaired first board meeting of Acme Corp Inc.")
+doc = nlp("Dr. Alex Smith chaired first board meeting of Acme Corp Inc.")
 print([(ent.text, ent.label_) for ent in doc.ents])
 ```
 
@@ -1230,7 +1242,7 @@ def expand_person_entities(doc):
 # Add the component after the named entity recognizer
 nlp.add_pipe(expand_person_entities, after='ner')
 
-doc = nlp("Dr Alex Smith chaired first board meeting of Acme Corp Inc.")
+doc = nlp("Dr. Alex Smith chaired first board meeting of Acme Corp Inc.")
 print([(ent.text, ent.label_) for ent in doc.ents])
 ```
 

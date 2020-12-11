@@ -150,20 +150,9 @@ cdef class Morphology:
         self.mem = Pool()
         self.strings = string_store
         self.tags = PreshMap()
-        # Add special space symbol. We prefix with underscore, to make sure it
-        # always sorts to the end.
-        space_attrs = tag_map.get('SP', {POS: SPACE})
-        if '_SP' not in tag_map:
-            self.strings.add('_SP')
-            tag_map = dict(tag_map)
-            tag_map['_SP'] = space_attrs
-        self.tag_names = tuple(sorted(tag_map.keys()))
-        self.tag_map = {}
-        self.lemmatizer = lemmatizer
-        self.n_tags = len(tag_map)
-        self.reverse_index = {}
         self._feat_map = MorphologyClassMap(FEATURES)
-        self._load_from_tag_map(tag_map)
+        self.load_tag_map(tag_map)
+        self.lemmatizer = lemmatizer
 
         self._cache = PreshMapArray(self.n_tags)
         self.exc = {}
@@ -173,13 +162,28 @@ cdef class Morphology:
                 self.add_special_case(
                     self.strings.as_string(tag), self.strings.as_string(orth), attrs)
 
-    def _load_from_tag_map(self, tag_map):
+    def load_tag_map(self, tag_map):
+        # Add special space symbol. We prefix with underscore, to make sure it
+        # always sorts to the end.
+        if '_SP' in tag_map:
+            space_attrs = tag_map.get('_SP')
+        else:
+            space_attrs = tag_map.get('SP', {POS: SPACE})
+        if '_SP' not in tag_map:
+            self.strings.add('_SP')
+            tag_map = dict(tag_map)
+            tag_map['_SP'] = space_attrs
+        self.tag_map = {}
+        self.reverse_index = {}
         for i, (tag_str, attrs) in enumerate(sorted(tag_map.items())):
             attrs = _normalize_props(attrs)
             self.add({self._feat_map.id2feat[feat] for feat in attrs
                       if feat in self._feat_map.id2feat})
             self.tag_map[tag_str] = dict(attrs)
             self.reverse_index[self.strings.add(tag_str)] = i
+        self.tag_names = tuple(sorted(self.tag_map.keys()))
+        self.n_tags = len(self.tag_map)
+        self._cache = PreshMapArray(self.n_tags)
 
     def __reduce__(self):
         return (Morphology, (self.strings, self.tag_map, self.lemmatizer,
