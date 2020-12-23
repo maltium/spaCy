@@ -11,6 +11,7 @@ _prep = ["bi", "da", "di", "fi", "ġo", "li", "ma", "mi", "sa", "ta", "bħa"]
 
 
 _my_prefixes = (
+    ["'l"] +
     ["{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article (dropped vowel)
     ["i{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article
     ["għa{}-".format(cons) for cons in _xemxin + ["l"]] +
@@ -34,7 +35,7 @@ def first_upper(l):
 
 
 _prefixes = (
-    TOKENIZER_PREFIXES + _my_prefixes + all_upper(_my_prefixes) + first_upper(_my_prefixes)
+    _my_prefixes + all_upper(_my_prefixes) + first_upper(_my_prefixes) + TOKENIZER_PREFIXES
 )
 
 _suffixes = (
