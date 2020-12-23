@@ -11,7 +11,7 @@ _prep = ["bi", "da", "di", "fi", "ġo", "li", "ma", "mi", "sa", "ta", "bħa"]
 
 
 _my_prefixes = (
-    ["'l"] +
+    ["'l", "'il"] +
     ["{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article (dropped vowel)
     ["i{}-".format(cons) for cons in _xemxin + ["l"]] +  # definite article
     ["għa{}-".format(cons) for cons in _xemxin + ["l"]] +
