@@ -4,6 +4,7 @@ import classNames from 'classnames'
 import { window } from 'browser-monads'
 
 import Link from './link'
+import Tag from './tag'
 import Dropdown from './dropdown'
 import classes from '../styles/sidebar.module.sass'
 
@@ -21,8 +22,8 @@ function getActiveHeading(items, slug) {
 
 const DropdownNavigation = ({ items, defaultValue }) => {
     return (
-        <div className={classes.dropdown}>
-            <Dropdown className={classes.dropdownSelect} defaultValue={defaultValue}>
+        <div className={classes['dropdown']}>
+            <Dropdown className={classes['dropdown-select']} defaultValue={defaultValue}>
                 <option disabled>Select page...</option>
                 {items.map((section, i) =>
                     section.items.map(({ text, url }, j) => (
@@ -36,40 +37,33 @@ const DropdownNavigation = ({ items, defaultValue }) => {
     )
 }
 
-const Sidebar = ({ items, pageMenu, slug }) => {
-    const [initialized, setInitialized] = useState(false)
+export default function Sidebar({ items = [], pageMenu = [], slug }) {
     const [activeSection, setActiveSection] = useState(null)
     const activeRef = useRef()
     const activeHeading = getActiveHeading(items, slug)
 
     useEffect(() => {
         const handleInView = ({ detail }) => setActiveSection(detail)
-        window.addEventListener('inview', handleInView, { passive: true })
-        if (!initialized) {
-            if (activeRef && activeRef.current) {
-                activeRef.current.scrollIntoView({ block: 'center' })
-            }
-            setInitialized(true)
-        }
+        window.addEventListener('SPACY_SCROLL_HANDLER', handleInView, { passive: true })
         return () => {
-            window.removeEventListener('inview', handleInView)
+            window.removeEventListener('SPACY_SCROLL_HANDLER', handleInView)
         }
-    }, [initialized])
+    })
 
     return (
-        <menu className={classNames('sidebar', classes.root)}>
-            <h1 hidden aria-hidden="true" className={classNames('h0', classes.activeHeading)}>
+        <menu className={classNames('sidebar', classes['root'])}>
+            <h1 hidden aria-hidden="true" className={classNames('h0', classes['active-heading'])}>
                 {activeHeading}
             </h1>
             <DropdownNavigation items={items} defaultValue={slug} />
             {items.map((section, i) => (
-                <ul className={classes.section} key={i}>
-                    <li className={classes.label}>{section.label}</li>
-                    {section.items.map(({ text, url, onClick, menu, isActive }, j) => {
+                <ul className={classes['section']} key={i}>
+                    <li className={classes['label']}>{section.label}</li>
+                    {section.items.map(({ text, url, tag, onClick, menu, isActive }, j) => {
                         const currentMenu = menu || pageMenu || []
                         const active = isActive || slug === url
-                        const itemClassNames = classNames(classes.link, {
-                            [classes.isActive]: active,
+                        const itemClassNames = classNames(classes['link'], {
+                            [classes['is-active']]: active,
                             'is-active': active,
                         })
 
@@ -82,13 +76,15 @@ const Sidebar = ({ items, pageMenu, slug }) => {
                                     hideIcon
                                 >
                                     {text}
+                                    {tag && <Tag spaced>{tag}</Tag>}
                                 </Link>
                                 {active && !!currentMenu.length && (
-                                    <ul className={classes.crumbs}>
-                                        {currentMenu.map(crumb => {
+                                    <ul className={classes['crumbs']}>
+                                        {currentMenu.map((crumb) => {
                                             const currentActive = activeSection || currentMenu[0].id
-                                            const crumbClassNames = classNames(classes.crumb, {
-                                                [classes.crumbActive]: currentActive === crumb.id,
+                                            const crumbClassNames = classNames(classes['crumb'], {
+                                                [classes['crumb-active']]:
+                                                    currentActive === crumb.id,
                                             })
                                             return (
                                                 <li className={crumbClassNames} key={crumb.id}>
@@ -105,11 +101,6 @@ const Sidebar = ({ items, pageMenu, slug }) => {
             ))}
         </menu>
     )
-}
-
-Sidebar.defaultProps = {
-    items: [],
-    pageMenu: [],
 }
 
 Sidebar.propTypes = {
@@ -138,5 +129,3 @@ Sidebar.propTypes = {
         })
     ),
 }
-
-export default Sidebar

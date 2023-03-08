@@ -1,13 +1,12 @@
 import React, { Fragment } from 'react'
-import { Parser as HtmlToReactParser } from 'html-to-react'
-import remark from 'remark'
-import remark2react from 'remark-react'
 import siteMetadata from '../../meta/site.json'
+import { domain } from '../../meta/dynamicMeta.mjs'
 
-const htmlToReactParser = new HtmlToReactParser()
-
+const isNightly = siteMetadata.nightlyBranches.includes(domain)
+export const DEFAULT_BRANCH = isNightly ? 'develop' : 'master'
 export const repo = siteMetadata.repo
 export const modelsRepo = siteMetadata.modelsRepo
+export const projectsRepo = siteMetadata.projectsRepo
 
 /**
  * This is used to provide selectors for headings so they can be crawled by
@@ -21,7 +20,8 @@ export const headingTextClassName = 'heading-text'
  * @param {string} [branch] - Optional branch. Defaults to master.
  * @returns {string} - URL to the file on GitHub.
  */
-export function github(filepath, branch = 'master') {
+export function github(filepath, branch = DEFAULT_BRANCH) {
+    if (filepath && filepath.startsWith('github.com')) return `https://${filepath}`
     const path = filepath ? '/tree/' + (branch || 'master') + '/' + filepath : ''
     return `https://github.com/${repo}${path}`
 }
@@ -29,11 +29,11 @@ export function github(filepath, branch = 'master') {
 /**
  * Get the source of a file in the documentation based on its slug
  * @param {string} slug - The slug, e.g. /api/doc.
- * @param {boolean} [isIndex] - Whether the page is an index, e.g. /api/index.md
+ * @param {boolean} [isIndex] - Whether the page is an index, e.g. /api/index.mdx
  * @param {string} [branch] - Optional branch on GitHub. Defaults to master.
  */
-export function getCurrentSource(slug, isIndex = false, branch = 'master') {
-    const ext = isIndex ? '/index.md' : '.md'
+export function getCurrentSource(slug, isIndex = false, branch = DEFAULT_BRANCH) {
+    const ext = isIndex ? '/index.mdx' : '.mdx'
     return github(`website/docs${slug}${ext}`, branch)
 }
 
@@ -47,32 +47,21 @@ export function isString(obj) {
 
 /**
  * @param obj - The object to check.
+ * @returns {boolean} – Whether the object is an image
+ */
+export function isImage(obj) {
+    if (!obj || !React.isValidElement(obj)) {
+        return false
+    }
+    return obj.props.name == 'img' || obj.props.className == 'gatsby-resp-image-wrapper'
+}
+
+/**
+ * @param obj - The object to check.
  * @returns {boolean} - Whether the object is empty.
  */
 export function isEmptyObj(obj) {
     return Object.entries(obj).length === 0 && obj.constructor === Object
-}
-
-/**
- * Convert raw HTML to React elements
- * @param {string} html - The HTML markup to convert.
- * @returns {Node} - The converted React elements.
- */
-export function htmlToReact(html) {
-    return htmlToReactParser.parse(html)
-}
-
-/**
- * Convert raw Markdown to React
- * @param {String} markdown - The Markdown markup to convert.
- * @param {Object} [remarkReactComponents] - Optional React components to use
- *  for HTML elements.
- * @returns {Node} - The converted React elements.
- */
-export function markdownToReact(markdown, remarkReactComponents = {}) {
-    return remark()
-        .use(remark2react, { remarkReactComponents })
-        .processSync(markdown).contents
 }
 
 /**
@@ -98,7 +87,7 @@ export function join(arr, delimiter = ', ') {
  * @return {Object} - The converted object.
  */
 export function arrayToObj(arr, key) {
-    return Object.assign({}, ...arr.map(item => ({ [item[key]]: item })))
+    return Object.assign({}, ...arr.map((item) => ({ [item[key]]: item })))
 }
 
 /**

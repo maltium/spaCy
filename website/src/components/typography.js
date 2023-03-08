@@ -9,7 +9,12 @@ import { isString, github, headingTextClassName } from './util'
 import classes from '../styles/typography.module.sass'
 
 export const H1 = ({ Component = 'h1', className, ...props }) => (
-    <Headline Component={Component} className={classNames(classes.h1, className)} {...props} />
+    <Headline
+        Component={Component}
+        className={classNames(classes.h1, className)}
+        permalink={false}
+        {...props}
+    />
 )
 export const H2 = ({ className, ...props }) => (
     <Headline Component="h2" className={classNames(classes.h2, className)} {...props} />
@@ -53,23 +58,17 @@ export const Label = ({ className, ...props }) => (
 )
 
 export const InlineList = ({ Component = 'p', gutterBottom = true, className, children }) => {
-    const listClassNames = classNames(classes.inlineList, className, {
-        [classes.noGutter]: !gutterBottom,
+    const listClassNames = classNames(classes['inline-list'], className, {
+        [classes['no-gutter']]: !gutterBottom,
     })
     return <Component className={listClassNames}>{children}</Component>
 }
 
-export const Help = ({ children }) => (
-    <span className={classes.help} data-tooltip={children}>
-        <Icon name="help2" width={16} />
+export const Help = ({ children, className, size = 16 }) => (
+    <span className={classNames(classes.help, className)} data-tooltip={children}>
+        <Icon name="help2" width={size} />
     </span>
 )
-
-/**
- * Allows inserting comments that will appear in .md preview on GitHub, but
- * won't be included in the final build of the site.
- */
-export const Comment = () => null
 
 const Permalink = ({ id, children }) =>
     !id ? (
@@ -84,12 +83,13 @@ const Headline = ({
     Component,
     id,
     name,
-    new: version,
+    version,
     model,
     tag,
     source,
     hidden,
     action,
+    permalink = true,
     className,
     children,
 }) => {
@@ -99,10 +99,10 @@ const Headline = ({
     const headingClassNames = classNames(classes.heading, className, {
         [classes.clear]: hasAction,
     })
-    const tags = tag ? tag.split(',').map(t => t.trim()) : []
+    const tags = tag ? tag.split(',').map((t) => t.trim()) : []
     return (
         <Component id={id} name={name} className={headingClassNames}>
-            <Permalink id={id}>{children} </Permalink>
+            <Permalink id={permalink ? id : null}>{children} </Permalink>
             {tags.map((tag, i) => (
                 <Tag spaced key={i}>
                     {tag}
@@ -136,7 +136,7 @@ const Headline = ({
 Headline.propTypes = {
     Component: PropTypes.oneOfType([PropTypes.element, PropTypes.string]).isRequired,
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.oneOf([false])]),
-    new: PropTypes.string,
+    version: PropTypes.string,
     model: PropTypes.string,
     source: PropTypes.string,
     tag: PropTypes.string,

@@ -1,9 +1,8 @@
-recursive-include include *.h
-recursive-include spacy *.txt *.pyx *.pxd
+recursive-include spacy *.pyi *.pyx *.pxd *.txt *.cfg *.jinja *.toml *.hh
 include LICENSE
 include README.md
-include bin/spacy
 include pyproject.toml
-recursive-exclude spacy/lang *.json
-recursive-include spacy/lang *.json.gz
+include spacy/py.typed
+recursive-include spacy/cli *.yml
 recursive-include licenses *
+recursive-exclude spacy *.cpp

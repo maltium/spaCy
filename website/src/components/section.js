@@ -6,14 +6,14 @@ import { window } from 'browser-monads'
 
 import classes from '../styles/section.module.sass'
 
-const Section = ({ id, className, ...props }) => {
+export default function Section({ id, className, ...props }) {
     const sectionClassNames = classNames(classes.root, className)
     const relId = id && id.startsWith('section-') ? id.slice(8) : id
     const [ref, inView] = useInView({ threshold: 0 })
 
     useEffect(() => {
         if (inView && relId) {
-            window.dispatchEvent(new CustomEvent('inview', { detail: relId }))
+            window.dispatchEvent(new CustomEvent('SPACY_SCROLL_HANDLER', { detail: relId }))
         }
     }, [inView, relId])
     return <section ref={ref} id={id} className={sectionClassNames} {...props} />
@@ -23,7 +23,5 @@ Section.propTypes = {
     id: PropTypes.string,
     className: PropTypes.string,
 }
-
-export default Section
 
 export const Hr = () => <hr className={classes.hr} />

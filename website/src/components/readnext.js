@@ -7,21 +7,21 @@ import { Label } from './typography'
 
 import classes from '../styles/readnext.module.sass'
 
-const ReadNext = ({ title, to }) => (
-    <div className={classes.root}>
-        <Link to={to} hidden>
-            <Label>Read next</Label>
-            {title}
+export default function ReadNext({ title, to }) {
+    return (
+        <Link to={to} noLinkLayout className={classes.root}>
+            <span>
+                <Label>Read next</Label>
+                {title}
+            </span>
+            <span className={classes.icon}>
+                <Icon name="arrowright" aria-hidden="true" />
+            </span>
         </Link>
-        <Link to={to} hidden className={classes.icon} aria-hidden="true">
-            <Icon name="arrowright" />
-        </Link>
-    </div>
-)
+    )
+}
 
 ReadNext.propTypes = {
     title: PropTypes.string.isRequired,
     to: PropTypes.string.isRequired,
 }
-
-export default ReadNext

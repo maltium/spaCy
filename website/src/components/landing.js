@@ -1,26 +1,35 @@
-import React, { Fragment } from 'react'
+import React from 'react'
 import classNames from 'classnames'
 
-import pattern from '../images/pattern_blue.jpg'
-import patternOverlay from '../images/pattern_landing.jpg'
-import logoSvgs from '../images/logos'
+import patternDefault from '../images/pattern_blue.png'
+import patternNightly from '../images/pattern_nightly.png'
+import patternLegacy from '../images/pattern_legacy.png'
+import overlayDefault from '../images/pattern_landing.png'
+import overlayNightly from '../images/pattern_landing_nightly.png'
+import overlayLegacy from '../images/pattern_landing_legacy.png'
 
 import Grid from './grid'
 import { Content } from './main'
 import Button from './button'
-import CodeBlock from './code'
-import { H1, H2, H3, Label, InlineList } from './typography'
+import CodeBlock from './codeBlock'
+import { H1, H2, H3 } from './typography'
 import Link from './link'
-import { chunkArray } from './util'
 import classes from '../styles/landing.module.sass'
 
-export const LandingHeader = ({ style = {}, children }) => {
-    const wrapperStyle = { backgroundImage: `url(${pattern})` }
-    const contentStyle = { backgroundImage: `url(${patternOverlay})`, ...style }
+function getPattern(nightly, legacy) {
+    if (nightly) return { pattern: patternNightly, overlay: overlayNightly }
+    if (legacy) return { pattern: patternLegacy, overlay: overlayLegacy }
+    return { pattern: patternDefault, overlay: overlayDefault }
+}
+
+export const LandingHeader = ({ nightly, legacy, style = {}, children }) => {
+    const { pattern, overlay } = getPattern(nightly, legacy)
+    const wrapperStyle = { backgroundImage: `url(${pattern.src})` }
+    const contentStyle = { backgroundImage: `url(${overlay.src})`, ...style }
     return (
-        <header className={classes.header}>
-            <div className={classes.headerWrapper} style={wrapperStyle}>
-                <div className={classes.headerContent} style={contentStyle}>
+        <header className={classes['header']}>
+            <div className={classes['header-wrapper']} style={wrapperStyle}>
+                <div className={classes['header-content']} style={contentStyle}>
                     {children}
                 </div>
             </div>
@@ -28,27 +37,27 @@ export const LandingHeader = ({ style = {}, children }) => {
     )
 }
 
-export const LandingTitle = ({ children }) => <h1 className={classes.title}>{children}</h1>
+export const LandingTitle = ({ children }) => <h1 className={classes['title']}>{children}</h1>
 
 export const LandingSubtitle = ({ children }) => (
     <h2>
-        <span className={classNames(classes.label, classes.subtitle)}>{children}</span>
+        <span className={classNames(classes['label'], classes['subtitle'])}>{children}</span>
     </h2>
 )
 
-export const LandingGrid = ({ cols = 3, blocks = false, children }) => (
-    <Content className={classNames({ [classes.blocks]: blocks })}>
-        <Grid cols={cols} narrow={blocks} className={classes.grid}>
+export const LandingGrid = ({ cols = 3, blocks = false, style, children }) => (
+    <Content className={classNames({ [classes['blocks']]: blocks })}>
+        <Grid cols={cols} narrow={blocks} className={classes['grid']} style={style}>
             {children}
         </Grid>
     </Content>
 )
 
-export const LandingCol = ({ children }) => <div className={classes.col}>{children}</div>
+export const LandingCol = ({ children }) => <div>{children}</div>
 
 export const LandingCard = ({ title, button, url, children }) => (
-    <div className={classes.card}>
-        <section className={classes.cardText}>
+    <div className={classes['card']}>
+        <section className={classes['card-text']}>
             {title && <H3>{title}</H3>}
             <p>{children}</p>
         </section>
@@ -61,14 +70,14 @@ export const LandingCard = ({ title, button, url, children }) => (
 )
 
 export const LandingButton = ({ to, children }) => (
-    <Button to={to} variant="primary" large className={classes.button}>
+    <Button to={to} variant="primary" large className={classes['button']}>
         {children}
     </Button>
 )
 
 export const LandingDemo = ({ title, children }) => {
     return (
-        <div className={classes.demo}>
+        <div className={classes['demo']}>
             <CodeBlock executable lang="python" title={title}>
                 {children}
             </CodeBlock>
@@ -77,7 +86,7 @@ export const LandingDemo = ({ title, children }) => {
 }
 
 export const LandingBannerGrid = ({ children }) => (
-    <Grid cols={2} className={classes.bannerGrid}>
+    <Grid cols={2} className={classes['banner-grid']}>
         {children}
     </Grid>
 )
@@ -93,33 +102,36 @@ export const LandingBanner = ({
     color,
     children,
 }) => {
-    const contentClassNames = classNames(classes.bannerContent, {
-        [classes.bannerContentSmall]: small,
+    const contentClassNames = classNames(classes['banner-content'], {
+        [classes['banner-content-small']]: small,
     })
-    const textClassNames = classNames(classes.bannerText, {
-        [classes.bannerTextSmall]: small,
+    const textClassNames = classNames(classes['banner-text'], {
+        [classes['banner-text-small']]: small,
     })
     const style = {
         '--color-theme': background,
+        '--color-theme-dark': background,
         '--color-back': color,
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : null,
     }
     const Heading = small ? H2 : H1
     return (
-        <div className={classes.banner} style={style}>
+        <div className={classes['banner']} style={style}>
             <Grid cols={small ? null : 3} narrow className={contentClassNames}>
-                <Heading Component="h3" className={classes.bannerTitle}>
-                    {label && (
-                        <div className={classes.bannerLabel}>
-                            <span className={classes.label}>{label}</span>
-                        </div>
-                    )}
-                    <Link to={to} hidden>
-                        {title}
-                    </Link>
-                </Heading>
+                {(title || label) && (
+                    <Heading Component="h3" className={classes['banner-title']}>
+                        {label && (
+                            <div className={classes['banner-label']}>
+                                <span className={classes['label']}>{label}</span>
+                            </div>
+                        )}
+                        <Link to={to} noLinkLayout>
+                            {title}
+                        </Link>
+                    </Heading>
+                )}
                 <div className={textClassNames}>
-                    <p>{children}</p>
+                    {children}
 
                     {button && (
                         <LandingBannerButton to={to} small={small}>
@@ -133,39 +145,14 @@ export const LandingBanner = ({
 }
 
 export const LandingBannerButton = ({ to, small, children }) => (
-    <div className={classes.bannerButton}>
-        <Button to={to} variant="tertiary" large={!small} className={classes.bannerButtonElement}>
+    <div className={classes['banner-button']}>
+        <Button
+            to={to}
+            variant="tertiary"
+            large={!small}
+            className={classes['banner-button-element']}
+        >
             {children}
         </Button>
     </div>
 )
-
-export const LandingLogos = ({ logos = [], title, maxRow = 4, children }) => {
-    const rows = chunkArray(logos, maxRow)
-    return (
-        <Content className={classes.logos}>
-            {title && <Label>{title}</Label>}
-            {rows.map((logos, i) => (
-                <Fragment key={i}>
-                    <InlineList className={classes.logosContent}>
-                        {logos.map(({ id, url }, j) => {
-                            const Component = logoSvgs[id]
-                            return !Component ? null : (
-                                <Link
-                                    to={url}
-                                    key={j}
-                                    aria-label={id}
-                                    hidden
-                                    className={classes.logo}
-                                >
-                                    <Component />
-                                </Link>
-                            )
-                        })}
-                        {i === rows.length - 1 && children}
-                    </InlineList>
-                </Fragment>
-            ))}
-        </Content>
-    )
-}
