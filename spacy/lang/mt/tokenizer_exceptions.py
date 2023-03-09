@@ -1,52 +1,43 @@
-# coding: utf8
-from __future__ import unicode_literals
+from typing import Dict, List
+from ..tokenizer_exceptions import BASE_EXCEPTIONS
+from ...symbols import ORTH
+from ...util import update_exc
 
-from ...symbols import ORTH, LEMMA, TAG, NORM, PRON_LEMMA
-
-_exc = {}
+_exc: Dict[str, List[Dict]] = {}
 
 for orth in [
+    "'d",
     "a.m.",
+    "adm.",
     "bros.",
     "co.",
     "corp.",
+    "d.c.",
     "dr.",
     "e.g.",
-    "fr.",
+    "gen.",
+    "gov.",
     "i.e.",
     "inc.",
     "jr.",
     "ltd.",
+    "md.",
+    "messrs.",
+    "mo.",
+    "mont.",
     "mr.",
     "mrs.",
     "ms.",
-    "onor."
     "p.m.",
     "ph.d.",
+    "prof.",
     "rep.",
     "rev.",
     "sen.",
     "st.",
     "vs.",
-    "eċċ.",
-    "eż.",
-    "vol.",
-    "Vol.",
-    "p.",
-    "2d", "2D",
-    "3d", "3D",
-    "3g", "3G",
-    "4g", "4G",
-    "5g", "5G",
-    "mp3", "MP3",
-    "mp4", "MP4",
-    "U2",
-    "x86", "x64",
-    "TVM2",
-    "r&b", "R&B",
-    "r&d", "R&D",
-    "E.coli"
+    "v.s.",
 ]:
     _exc[orth] = [{ORTH: orth}]
 
-TOKENIZER_EXCEPTIONS = _exc
+TOKENIZER_EXCEPTIONS = update_exc(BASE_EXCEPTIONS, _exc)

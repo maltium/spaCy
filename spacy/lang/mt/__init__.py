@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from ...language import Language
 from ..tokenizer_exceptions import BASE_EXCEPTIONS
 
