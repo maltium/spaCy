@@ -32,6 +32,12 @@
             "has_examples": true
         },
         {
+            "code": "bo",
+            "name": "Tibetan",
+            "example": "འདི་ཚིག་གྲུབ་རེད།",
+            "has_examples": true
+        },
+        {
             "code": "ca",
             "name": "Catalan",
             "example": "Això és una frase.",
@@ -102,6 +108,10 @@
             "name": "Finnish",
             "has_examples": true,
             "models": ["fi_core_news_sm", "fi_core_news_md", "fi_core_news_lg"]
+        },
+        {
+            "code": "fo",
+            "name": "Faroese"
         },
         {
             "code": "fr",
@@ -222,7 +232,9 @@
         },
         {
             "code": "la",
-            "name": "Latin"
+            "name": "Latin",
+	    "example": "In principio creavit Deus caelum et terram.",
+	    "has_examples": true
         },
         {
             "code": "lb",
@@ -265,6 +277,11 @@
             "name": "Marathi"
         },
         {
+            "code": "ms",
+            "name": "Malay",
+            "has_examples": true
+        },
+        {
             "code": "nb",
             "name": "Norwegian Bokmål",
             "example": "Dette er en setning.",
@@ -281,6 +298,12 @@
             "name": "Dutch",
             "models": ["nl_core_news_sm", "nl_core_news_md", "nl_core_news_lg"],
             "example": "Dit is een zin.",
+            "has_examples": true
+        },
+        {
+            "code": "nn",
+            "name": "Norwegian Nynorsk",
+            "example": "Det er ein meir enn i same periode i fjor.",
             "has_examples": true
         },
         {
@@ -334,7 +357,10 @@
         },
         {
             "code": "sl",
-            "name": "Slovenian"
+            "name": "Slovenian",
+	    "example": "France Prešeren je umrl 8. februarja 1849 v Kranju",
+	    "has_examples": true,
+            "models": ["sl_core_news_sm", "sl_core_news_md", "sl_core_news_lg", "sl_core_news_trf"]
         },
         {
             "code": "sq",
@@ -459,6 +485,12 @@
                 }
             ],
             "example": "这是一个用于示例的句子。",
+            "has_examples": true
+        },
+        {
+            "code": "kmr",
+            "name": "Kurdish Kurmanji",
+            "example": "Ev hevokek e",
             "has_examples": true
         }
     ],

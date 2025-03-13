@@ -8,13 +8,14 @@ on:
 
 jobs:
   explosion-bot:
+    if: github.repository_owner == 'explosion'
     runs-on: ubuntu-latest
     steps:
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
       - name: Install and run explosion-bot
         run: |

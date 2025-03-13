@@ -382,15 +382,16 @@ objects instead of tuples of `Doc` and `GoldParse` objects.
 > print(scores)
 > ```
 
-| Name            | Description                                                                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `examples`      | A batch of [`Example`](/api/example) objects to learn from. ~~Iterable[Example]~~                                                              |
-| _keyword-only_  |                                                                                                                                                |
-| `batch_size`    | The batch size to use. ~~Optional[int]~~                                                                                                       |
-| `scorer`        | Optional [`Scorer`](/api/scorer) to use. If not passed in, a new one will be created. ~~Optional[Scorer]~~                                     |
-| `component_cfg` | Optional dictionary of keyword arguments for components, keyed by component names. Defaults to `None`. ~~Optional[Dict[str, Dict[str, Any]]]~~ |
-| `scorer_cfg`    | Optional dictionary of keyword arguments for the `Scorer`. Defaults to `None`. ~~Optional[Dict[str, Any]]~~                                    |
-| **RETURNS**     | A dictionary of evaluation scores. ~~Dict[str, Union[float, Dict[str, float]]]~~                                                               |
+| Name                                         | Description                                                                                                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `examples`                                   | A batch of [`Example`](/api/example) objects to learn from. ~~Iterable[Example]~~                                                              |
+| _keyword-only_                               |                                                                                                                                                |
+| `batch_size`                                 | The batch size to use. ~~Optional[int]~~                                                                                                       |
+| `scorer`                                     | Optional [`Scorer`](/api/scorer) to use. If not passed in, a new one will be created. ~~Optional[Scorer]~~                                     |
+| `component_cfg`                              | Optional dictionary of keyword arguments for components, keyed by component names. Defaults to `None`. ~~Optional[Dict[str, Dict[str, Any]]]~~ |
+| `scorer_cfg`                                 | Optional dictionary of keyword arguments for the `Scorer`. Defaults to `None`. ~~Optional[Dict[str, Any]]~~                                    |
+| `per_component` <Tag variant="new">3.6</Tag> | Whether to return the scores keyed by component name. Defaults to `False`. ~~bool~~                                                            |
+| **RETURNS**                                  | A dictionary of evaluation scores. ~~Dict[str, Union[float, Dict[str, float]]]~~                                                               |
 
 ## Language.use_params {id="use_params",tag="contextmanager, method"}
 
@@ -855,7 +856,7 @@ token-to-vector embedding component like [`Tok2Vec`](/api/tok2vec) or
 training a pipeline with components sourced from an existing pipeline: if
 multiple components (e.g. tagger, parser, NER) listen to the same
 token-to-vector component, but some of them are frozen and not updated, their
-performance may degrade significally as the token-to-vector component is updated
+performance may degrade significantly as the token-to-vector component is updated
 with new data. To prevent this, listeners can be replaced with a standalone
 token-to-vector layer that is owned by the component and doesn't change if the
 component isn't updated.
@@ -888,6 +889,28 @@ when loading a config with
 | `tok2vec_name` | Name of the token-to-vector component, typically `"tok2vec"` or `"transformer"`.~~str~~                                                                                                                                                                                                                                                                                                                                                |
 | `pipe_name`    | Name of pipeline component to replace listeners for. ~~str~~                                                                                                                                                                                                                                                                                                                                                                           |
 | `listeners`    | The paths to the listeners, relative to the component config, e.g. `["model.tok2vec"]`. Typically, implementations will only connect to one tok2vec component, `model.tok2vec`, but in theory, custom models can use multiple listeners. The value here can either be an empty list to not replace any listeners, or a _complete_ list of the paths to all listener layers used by the model that should be replaced.~~Iterable[str]~~ |
+
+## Language.memory_zone {id="memory_zone",tag="contextmanager",version="3.8"}
+
+Begin a block where all resources allocated during the block will be freed at
+the end of it. If a resources was created within the memory zone block,
+accessing it outside the block is invalid. Behavior of this invalid access is
+undefined. Memory zones should not be nested. The memory zone is helpful for
+services that need to process large volumes of text with a defined memory budget.
+
+> ```python
+> ### Example
+> counts = Counter()
+> with nlp.memory_zone():
+>     for doc in nlp.pipe(texts):
+>         for token in doc:
+>             counts[token.text] += 1
+> ```
+
+| Name | Description |
+| --- | --- |
+| `mem` | Optional `cymem.Pool` object to own allocations (created if not provided). This argument is not required for ordinary usage. Defaults to `None`. ~~Optional[cymem.Pool]~~ |
+| **RETURNS** | The memory pool that owns the allocations. This object is not required for ordinary usage. ~~Iterator[cymem.Pool]~~ |
 
 ## Language.meta {id="meta",tag="property"}
 

@@ -23,11 +23,10 @@
     },
     "docSearch": {
         "appId": "Y1LB128RON",
-        "apiKey": "bb601a1daab73e2dc66faf2b79564807",
         "indexName": "spacy"
     },
     "binderUrl": "explosion/spacy-io-binder",
-    "binderVersion": "3.5",
+    "binderVersion": "3.7",
     "sections": [
         { "id": "usage", "title": "Usage Documentation", "theme": "blue" },
         { "id": "models", "title": "Models Documentation", "theme": "blue" },
@@ -66,14 +65,19 @@
                 {
                     "text": "Stack Overflow",
                     "url": "http://stackoverflow.com/questions/tagged/spacy"
+                },
+                {
+                    "text": "Merchandise",
+                    "url": "https://explosion.ai/merch"
                 }
             ]
         },
         {
             "label": "Connect",
             "items": [
-                { "text": "Twitter", "url": "https://twitter.com/spacy_io" },
+                { "text": "Bluesky", "url": "https://bsky.app/profile/explosion-ai.bsky.social" },
                 { "text": "GitHub", "url": "https://github.com/explosion/spaCy" },
+                { "text": "Live Stream", "url": "https://www.youtube.com/playlist?list=PLBmcuObd5An5_iAxNYLJa_xWmNzsYce8c" },
                 { "text": "YouTube", "url": "https://youtube.com/c/ExplosionAI" },
                 { "text": "Blog", "url": "https://explosion.ai/blog" }
             ]

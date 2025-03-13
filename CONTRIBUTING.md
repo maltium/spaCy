@@ -35,7 +35,7 @@ so that more people can benefit from it.
 
 When opening an issue, use a **descriptive title** and include your
 **environment** (operating system, Python version, spaCy version). Our
-[issue template](https://github.com/explosion/spaCy/issues/new) helps you
+[issue templates](https://github.com/explosion/spaCy/issues/new/choose) help you
 remember the most important details to include. If you've discovered a bug, you
 can also submit a [regression test](#fixing-bugs) straight away. When you're
 opening an issue to report the bug, simply refer to your pull request in the
@@ -449,13 +449,12 @@ and plugins in spaCy v3.0, and we can't wait to see what you build with it!
   [`spacy`](https://github.com/topics/spacy?o=desc&s=stars) and
   [`spacy-extensions`](https://github.com/topics/spacy-extension?o=desc&s=stars)
   to make it easier to find. Those are also the topics we're linking to from the
-  spaCy website. If you're sharing your project on Twitter, feel free to tag
-  [@spacy_io](https://twitter.com/spacy_io) so we can check it out.
+  spaCy website. If you're sharing your project on X, feel free to tag
+  [@spacy_io](https://x.com/spacy_io) so we can check it out.
 
-- Once your extension is published, you can open an issue on the
-  [issue tracker](https://github.com/explosion/spacy/issues) to suggest it for the
-  [resources directory](https://spacy.io/usage/resources#extensions) on the
-  website.
+- Once your extension is published, you can open a
+  [PR](https://github.com/explosion/spaCy/pulls) to suggest it for the
+  [Universe](https://spacy.io/universe) page.
 
 📖 **For more tips and best practices, see the [checklist for developing spaCy extensions](https://spacy.io/usage/processing-pipelines#extensions).**
 

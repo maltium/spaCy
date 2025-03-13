@@ -58,8 +58,8 @@ const AlertSpace = ({ nightly, legacy }) => {
 }
 
 const navAlert = (
-    <Link to="/usage/v3-5" noLinkLayout>
-        <strong>💥 Out now:</strong> spaCy v3.5
+    <Link to="https://github.com/explosion/spacy-layout" noLinkLayout>
+        💥 <strong>New:</strong> spaCy for PDFs and Word docs
     </Link>
 )
 
