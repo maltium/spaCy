@@ -47,7 +47,7 @@ pipeline name to be specified with its version (e.g. `en_core_web_sm-3.0.0`).
 > project.
 
 ```bash
-$ python -m spacy download [model] [--direct] [--sdist] [pip_args]
+$ python -m spacy download [model] [--direct] [--sdist] [pip_args] [--url url]
 ```
 
 | Name                                       | Description                                                                                                                                                                                                                               |
@@ -58,6 +58,7 @@ $ python -m spacy download [model] [--direct] [--sdist] [pip_args]
 | `--help`, `-h`                             | Show help message and available arguments. ~~bool (flag)~~                                                                                                                                                                                |
 | pip args                                   | Additional installation options to be passed to `pip install` when installing the pipeline package. For example, `--user` to install to the user home directory or `--no-deps` to not install package dependencies. ~~Any (option/flag)~~ |
 | **CREATES**                                | The installed pipeline package in your `site-packages` directory.                                                                                                                                                                         |
+| `--url`, `-U`                              | Download from a mirror repository at the given url |
 
 ## info {id="info",tag="command"}
 
@@ -230,7 +231,7 @@ $ python -m spacy init vectors [lang] [vectors_loc] [output_dir] [--prune] [--tr
 
 | Name               | Description                                                                                                                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lang`             | Pipeline language [IETF language tag](https://www.w3.org/International/articles/language-tags/), such as `en`. ~~str (positional)~~                                                                                                                                 |
+| `lang`             | Pipeline language. Two-letter [ISO 639-1 code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) or three-letter [ISO 639-3 code](https://en.wikipedia.org/wiki/List_of_ISO_639-3_codes), such as `en` and `eng`. ~~str (positional)~~                                                                                                                                 |
 | `vectors_loc`      | Location of vectors. Should be a file where the first row contains the dimensions of the vectors, followed by a space-separated Word2Vec table. File can be provided in `.txt` format or as a zipped text file in `.zip` or `.tar.gz` format. ~~Path (positional)~~ |
 | `output_dir`       | Pipeline output directory. Will be created if it doesn't exist. ~~Path (positional)~~                                                                                                                                                                               |
 | `--truncate`, `-t` | Number of vectors to truncate to when reading in vectors file. Defaults to `0` for no truncation. ~~int (option)~~                                                                                                                                                  |

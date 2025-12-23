@@ -104,7 +104,6 @@ class BaseDefaults:
     writing_system = {"direction": "ltr", "has_case": True, "has_letters": True}
 
 
-@registry.tokenizers("spacy.Tokenizer.v1")
 def create_tokenizer() -> Callable[["Language"], Tokenizer]:
     """Registered function to create a tokenizer. Returns a factory that takes
     the nlp object and returns a Tokenizer instance using the language detaults.
@@ -130,7 +129,6 @@ def create_tokenizer() -> Callable[["Language"], Tokenizer]:
     return tokenizer_factory
 
 
-@registry.misc("spacy.LookupsDataLoader.v1")
 def load_lookups_data(lang, tables):
     util.logger.debug("Loading lookups from spacy-lookups-data: %s", tables)
     lookups = load_lookups(lang=lang, tables=tables)
@@ -143,7 +141,7 @@ class Language:
 
     Defaults (class): Settings, data and factory methods for creating the `nlp`
         object and processing pipeline.
-    lang (str): IETF language code, such as 'en'.
+    lang (str): Two-letter ISO 639-1 or three-letter ISO 639-3 language codes, such as 'en' and 'eng'.
 
     DOCS: https://spacy.io/api/language
     """
@@ -185,6 +183,9 @@ class Language:
 
         DOCS: https://spacy.io/api/language#init
         """
+        from .pipeline.factories import register_factories
+
+        register_factories()
         # We're only calling this to import all factories provided via entry
         # points. The factory decorator applied to these functions takes care
         # of the rest.
@@ -1518,8 +1519,7 @@ class Language:
         disable: Iterable[str] = ...,
         component_cfg: Optional[Dict[str, Dict[str, Any]]] = ...,
         n_process: int = ...,
-    ) -> Iterator[Doc]:
-        ...
+    ) -> Iterator[Doc]: ...
 
     @overload
     def pipe(  # noqa: F811
@@ -1531,8 +1531,7 @@ class Language:
         disable: Iterable[str] = ...,
         component_cfg: Optional[Dict[str, Dict[str, Any]]] = ...,
         n_process: int = ...,
-    ) -> Iterator[Tuple[Doc, _AnyContext]]:
-        ...
+    ) -> Iterator[Tuple[Doc, _AnyContext]]: ...
 
     def pipe(  # noqa: F811
         self,
@@ -1640,7 +1639,7 @@ class Language:
         batch_size: int,
     ) -> Iterator[Doc]:
         def prepare_input(
-            texts: Iterable[Union[str, Doc]]
+            texts: Iterable[Union[str, Doc]],
         ) -> Iterable[Tuple[Union[str, bytes], _AnyContext]]:
             # Serialize Doc inputs to bytes to avoid incurring pickling
             # overhead when they are passed to child processes. Also yield
@@ -1942,9 +1941,9 @@ class Language:
                         )
                     if "_sourced_vectors_hashes" not in nlp.meta:
                         nlp.meta["_sourced_vectors_hashes"] = {}
-                    nlp.meta["_sourced_vectors_hashes"][
-                        pipe_name
-                    ] = source_nlp_vectors_hashes[model]
+                    nlp.meta["_sourced_vectors_hashes"][pipe_name] = (
+                        source_nlp_vectors_hashes[model]
+                    )
                     # Delete from cache if listeners were replaced
                     if listeners_replaced:
                         del source_nlps[model]
