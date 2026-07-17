@@ -10,7 +10,7 @@ SLACK_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "ENV VAR not available!")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 client = WebClient(SLACK_TOKEN)
-github_context = json.loads(sys.argv[1])
+github_context = json.loads(sys.stdin.read())
 
 event = github_context['event']
 pr_title = event['pull_request']["title"]

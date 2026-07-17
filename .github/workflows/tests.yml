@@ -19,6 +19,9 @@ on:
       - "*.mdx"
       - "website/**"
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate
@@ -26,49 +29,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
 
       - name: Configure Python version
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: "3.10"
 
-      - name: black
+      - name: ruff format
         run: |
-          python -m pip install black -c requirements.txt
-          python -m black spacy --check
-      - name: isort
+          python -m pip install ruff -c requirements.txt
+          python -m ruff format spacy --check
+      - name: ruff isort
         run: |
-          python -m pip install isort -c requirements.txt
-          python -m isort spacy --check
-      - name: flake8
-        run: |
-          python -m pip install flake8==5.0.4
-          python -m flake8 spacy --count --select=E901,E999,F821,F822,F823,W605 --show-source --statistics
-          # Unfortunately cython-lint isn't working after the shift to Cython 3.
-          #- name: cython-lint
-          #  run: |
-          #    python -m pip install cython-lint -c requirements.txt
-          #    # E501: line too log, W291: trailing whitespace, E266: too many leading '#' for block comment
-          #    cython-lint spacy --ignore E501,W291,E266
+          python -m ruff check spacy --select I
 
   tests:
     name: Test
     needs: Validate
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python_version: ["3.10", "3.11", "3.12", "3.13"]
+        python_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
 
       - name: Configure Python version
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -104,7 +96,7 @@ jobs:
         shell: bash
 
       - name: Test import
-        run: python -W error -c "import spacy"
+        run: python -W error -W 'ignore:Core Pydantic V1:UserWarning:pydantic' -c "import spacy"
 
       - name: "Test download CLI"
         run: |
@@ -165,7 +157,7 @@ jobs:
 
       - name: "Run CPU tests"
         run: |
-          python -m pytest --pyargs spacy -W error
+          python -m pytest --pyargs spacy -W error -W 'ignore:Core Pydantic V1:UserWarning:pydantic'
         if: "!(startsWith(matrix.os, 'macos') && matrix.python_version == '3.11')"
 
       - name: "Run CPU tests with thinc-apple-ops"
